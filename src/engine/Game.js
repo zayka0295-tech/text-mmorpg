@@ -259,7 +259,10 @@ export class Game {
         this.player.quests = profile.quests || {};
         this.player.dailyQuests = profile.dailyQuests || [];
         
+        // Reputation
+        this.player.reputation = profile.reputation || 0;
         if (profile.reputationVotes) this.player.reputationVotes = profile.reputationVotes;
+        
         if (profile.ship) this.player.ship = profile.ship;
         
         // Force Data (DatabaseService flattens force_data)
@@ -282,10 +285,12 @@ export class Game {
             timeLeft: this.player.jobEndTime - Date.now() 
         });
         
-        if (profile.appearance) this.player.avatar = profile.appearance.avatar;
-        // Or if DatabaseService maps it to 'avatar' directly? 
-        // DatabaseService: avatar: dbProfile.appearance?.avatar
-        if (profile.avatar) this.player.avatar = profile.avatar;
+        // Avatar/Appearance
+        if (profile.avatar) {
+            this.player.avatar = profile.avatar;
+        } else if (profile.appearance && profile.appearance.avatar) {
+            this.player.avatar = profile.appearance.avatar;
+        }
         
         // Recalculate derived stats
         this.player._emit('stats-changed');
