@@ -192,6 +192,12 @@ async function handleMessage(ws, message, metadata) {
                 // Inject the DB ID to ensure upsert works correctly
                 if (metadata.dbId) message.data.id = metadata.dbId;
                 
+                console.log(`Saving profile for ${metadata.name}:`, { 
+                    money: message.data.money, 
+                    level: message.data.level, 
+                    job: message.data.activeJob 
+                });
+
                 await db.saveProfile(message.data);
             } catch (e) {
                 console.error("Save failed:", e);

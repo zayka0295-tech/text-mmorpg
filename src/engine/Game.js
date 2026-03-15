@@ -271,9 +271,16 @@ export class Game {
         
         // Job Data (DatabaseService flattens job_data)
         this.player.activeJob = profile.activeJob || null;
-        this.player.jobEndTime = profile.jobEndTime || 0;
-        this.player.jobNotified = profile.jobNotified || false;
-        this.player.viewingJobBoard = profile.viewingJobBoard || false;
+        this.player.jobEndTime = Number(profile.jobEndTime) || 0; // Ensure number
+        this.player.jobNotified = !!profile.jobNotified;
+        this.player.viewingJobBoard = !!profile.viewingJobBoard;
+        
+        console.log('Hydrated Job State:', { 
+            active: this.player.activeJob, 
+            end: this.player.jobEndTime, 
+            now: Date.now(),
+            timeLeft: this.player.jobEndTime - Date.now() 
+        });
         
         if (profile.appearance) this.player.avatar = profile.appearance.avatar;
         // Or if DatabaseService maps it to 'avatar' directly? 

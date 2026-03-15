@@ -42,7 +42,8 @@ export class JobScreen {
 
     _startTicker() {
         this._stopTicker();
-        if (this.player.activeJob && this.player.jobEndTime > Date.now()) {
+        const jobEnd = Number(this.player.jobEndTime) || 0;
+        if (this.player.activeJob && jobEnd > Date.now()) {
             this._updateTimerDisplays(); // Immediate update
             this.ticker = setInterval(() => {
                 if (document.getElementById('active-job-timer') || document.querySelector('.job-timer-inline')) {
@@ -67,7 +68,9 @@ export class JobScreen {
         }
 
         // Check if we have an expired active job that needs claiming immediately upon viewing
-        if (this.player.activeJob && Date.now() >= this.player.jobEndTime) {
+        // Convert to Number to be safe
+        const jobEnd = Number(this.player.jobEndTime) || 0;
+        if (this.player.activeJob && jobEnd > 0 && Date.now() >= jobEnd) {
             const result = this.player.completeActiveJob();
             if (result) {
                 Modals.alert('Работа завершена', `Вы отлично поработали на должности "${result.title}" и получили ${result.credits} кр. и ${result.xp} XP!`);
@@ -79,7 +82,8 @@ export class JobScreen {
         this._attachJobSelectEvents();
         
         // If there is antive job, start the ticker to update the UI
-        if (this.player.activeJob && this.player.jobEndTime > Date.now()) {
+        const jobEnd2 = Number(this.player.jobEndTime) || 0;
+        if (this.player.activeJob && jobEnd2 > Date.now()) {
             this._startTicker();
         }
     }
@@ -160,7 +164,8 @@ export class JobScreen {
         const timerEl = document.getElementById(`job-timer-${this.player.activeJob}`);
         if(!timerEl) return;
 
-        const leftMs = this.player.jobEndTime - Date.now();
+        const jobEnd = Number(this.player.jobEndTime) || 0;
+        const leftMs = jobEnd - Date.now();
         if (leftMs <= 0) {
             // Main.js handles the actual completion logic globally
             // We just stop updating the UI until it refreshes
