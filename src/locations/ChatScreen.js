@@ -141,13 +141,13 @@ export class ChatScreen {
 
         return `
             <div class="chat-message ${isPlayer ? 'chat-msg-player' : 'chat-msg-npc'}">
-                <div class="chat-msg-avatar chat-clickable-avatar" data-playername="${this._escapeHtml(msg.author)}">
+                <div class="chat-msg-avatar chat-clickable-avatar" data-playername="${this._escapeHtml(msg.author)}" data-playerid="${msg.senderId || ''}">
                     ${avatarContent}
                     ${fallbackAvatar}
                 </div>
                 <div class="chat-msg-body">
                     <div class="chat-msg-header">
-                        <span class="chat-msg-author ${isPlayer ? 'author-player' : 'author-npc'} chat-clickable-author" data-playername="${this._escapeHtml(msg.author)}" style="${nameStyle}">${msg.author}</span>
+                        <span class="chat-msg-author ${isPlayer ? 'author-player' : 'author-npc'} chat-clickable-author" data-playername="${this._escapeHtml(msg.author)}" data-playerid="${msg.senderId || ''}" style="${nameStyle}">${msg.author}</span>
                         <span class="chat-msg-time">${time}</span>
                     </div>
                     <div class="chat-msg-text">${this._escapeHtml(msg.text)}</div>
@@ -182,8 +182,9 @@ export class ChatScreen {
             const clickable = e.target.closest('.chat-clickable-author, .chat-clickable-avatar');
             if (clickable) {
                 const name = clickable.getAttribute('data-playername');
+                const id = clickable.getAttribute('data-playerid');
                 const modal = window.gameInstance?.playerModal;
-                if (name && modal) modal.show(name);
+                if (name && modal) modal.show(name, id);
             }
         });
 

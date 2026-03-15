@@ -169,6 +169,12 @@ async function handleMessage(ws, message, metadata) {
              }
              break;
 
+        case 'profile_data':
+            if (message.targetId) {
+                sendTo(message.targetId, message);
+            }
+            break;
+
         default:
             console.log("Unknown message type:", message.type);
     }

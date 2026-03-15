@@ -29,12 +29,12 @@ export class PlayerModal {
         }
 
         document.addEventListener('network:profile_data', (e) => {
-            const { targetId, data } = e.detail;
-            // If the modal is waiting for this target, render it
-            if (this.waitingForTargetId === targetId) {
+            const { senderId, data } = e.detail;
+            // If the modal is waiting for this target (the sender of the data), render it
+            if (this.waitingForTargetId === senderId) {
                 // Merge received data with basic info we might already have
                 const target = {
-                    id: targetId,
+                    id: senderId,
                     name: data.name,
                     // Use data from network, fallback to defaults
                     ...data,
