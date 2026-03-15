@@ -1,12 +1,13 @@
 export class NetworkManager {
     constructor(player) {
         this.player = player || null;
+        this.playerId = player?.id || null;
         this.socket = null;
         this.isConnected = false;
         
         // Determine protocol: wss if https, ws if http
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // Determine host: use current host (e.g. text-mmorpg.onrender.com or localhost:8081)
+        // Determine host from the current runtime environment
         // If we are on port 8080 (dev client), assume server is on 8081
         // If we are on production (port 8081 or 443), use same host
         let host = window.location.host;
@@ -67,10 +68,7 @@ export class NetworkManager {
 
     setPlayer(player) {
         this.player = player;
-        if (this.isConnected) {
-            this._sendAuth(); // Re-identify if connection was already open
-            this.sendMove(this.player.locationId);
-        }
+        this.playerId = player?.id || null;
     }
 
     login(username, password) {
@@ -86,18 +84,57 @@ export class NetworkManager {
     }
 
     sendReputationVote(targetId, voteType) {
-        this.send('reputation_vote', { targetId, voteType });
+        try {
+            if (!targetId) throw new Error('targetId is required');
+            if (!voteType) throw new Error('voteType is required');
+            return this.send('reputation_vote', { targetId, voteType });
+        } catch (error) {
+            console.error('[NetworkManager.sendReputationVote]', {
+                message: error?.message,
+                targetId,
+                voteType,
+                isConnected: this.isConnected,
+                readyState: this.socket?.readyState
+            });
+            return false;
+        }
     }
 
     send(type, payload = {}) {
-        if (!this.isConnected) return;
-        const message = { type, ...payload };
-        this.socket.send(JSON.stringify(message));
+        if (!this.isConnected || !this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            console.error('[NetworkManager.send] Socket is not ready', {
+                type,
+                isConnected: this.isConnected,
+                readyState: this.socket?.readyState
+            });
+            return false;
+        }
+
+        try {
+            const message = { type, ...payload };
+            this.socket.send(JSON.stringify(message));
+            return true;
+        } catch (error) {
+            console.error('[NetworkManager.send] Failed to send message', {
+                type,
+                message: error?.message,
+                payload
+            });
+            return false;
+        }
     }
 
     _sendAuth() {
         if (!this.player) return;
-        this.send('auth', { name: this.player.name });
+        this.send('auth', {
+            name: this.player.name,
+            playerId: this.player.id,
+            locationId: this.player.locationId,
+            avatar: this.player.avatar,
+            title: this.player.title,
+            level: this.player.level,
+            alignment: this.player.alignment
+        });
     }
 
     sendMove(locationId) {
@@ -128,6 +165,7 @@ export class NetworkManager {
                 break;
             case 'login_success':
             case 'register_success':
+                this.playerId = message.profile?.id || this.playerId;
                 document.dispatchEvent(new CustomEvent('network:auth_success', { detail: message }));
                 break;
             case 'login_error':
@@ -155,7 +193,7 @@ export class NetworkManager {
                 document.dispatchEvent(new CustomEvent('network:update_state', { detail: message }));
                 break;
             case 'request_profile':
-                if (message.targetId === this.networkId) { // It's for me
+                if (message.targetId === this.networkId || message.targetId === this.player?.id || message.targetId === this.playerId) {
                     const myData = this.player.getFullStats();
                     this.send('profile_data', { 
                         targetId: message.senderId, // Send back to requester
@@ -175,6 +213,10 @@ export class NetworkManager {
             case 'zone_population':
                 document.dispatchEvent(new CustomEvent('network:zone_population', { detail: message }));
                 break;
+            case 'reputation_vote_result':
+                document.dispatchEvent(new CustomEvent('network:reputation_vote_result', { detail: message }));
+                break;
+            case 'reputation_update':
             case 'reputation_vote':
                 // Someone voted for us
                 if (this.player) {
@@ -185,8 +227,12 @@ export class NetworkManager {
                     // Server `handleMessage` adds `senderId`, `senderName` to message object!
                     // So we have `message.senderName`.
                     
-                    const change = voteType === 'up' ? 1 : -1;
-                    this.player.reputation = (this.player.reputation || 0) + change;
+                    if (typeof message.newReputation === 'number') {
+                        this.player.reputation = message.newReputation;
+                    } else {
+                        const change = voteType === 'up' ? 1 : -1;
+                        this.player.reputation = (this.player.reputation || 0) + change;
+                    }
                     // Save the change
                     this.saveProfile(this.player.getFullStats());
                     

@@ -1,20 +1,42 @@
-require('dotenv').config({ path: '../.env' });
+const dotenv = require('dotenv');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
+if (!process.env.SUPABASE_URL || (!process.env.SUPABASE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY)) {
+    dotenv.config();
+}
+
 class DatabaseService {
     constructor() {
         const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_KEY;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
         if (!supabaseUrl || !supabaseKey) {
-            console.warn('⚠️ Supabase URL or Key is missing. Database features will be disabled.');
+            console.warn('⚠️ Supabase URL or Key is missing. Database features will be disabled.', {
+                hasUrl: !!supabaseUrl,
+                hasKey: !!supabaseKey
+            });
             this.supabase = null;
         } else {
             this.supabase = createClient(supabaseUrl, supabaseKey);
             console.log('✅ Connected to Supabase');
         }
+    }
+
+    _logDbError(context, error, extra = {}) {
+        console.error(`[DatabaseService.${context}]`, {
+            message: error?.message,
+            code: error?.code,
+            details: error?.details,
+            hint: error?.hint,
+            ...extra
+        });
+    }
+
+    _isMissingColumnError(error, columnName) {
+        const errorText = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+        return errorText.includes(columnName.toLowerCase()) && (errorText.includes('column') || errorText.includes('schema cache'));
     }
 
     /**
@@ -26,38 +48,41 @@ class DatabaseService {
     async registerUser(username, password) {
         if (!this.supabase) return { error: 'Database not configured' };
 
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
+        try {
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(password, salt);
 
-        // Create initial profile
-        const profile = {
-            username: username,
-            password_hash: passwordHash,
-            class_name: 'Контрабандист', // Default
-            race: 'Человек', // Default
-            level: 1,
-            xp: 0,
-            money: 0,
-            location_id: 'tatooine_spaceport',
-            updated_at: new Date()
-        };
+            const profile = {
+                username: username,
+                password_hash: passwordHash,
+                class_name: 'Контрабандист',
+                race: 'Человек',
+                level: 1,
+                xp: 0,
+                money: 0,
+                location_id: 'tatooine_spaceport',
+                updated_at: new Date()
+            };
 
-        const { data, error } = await this.supabase
-            .from('profiles')
-            .insert([profile])
-            .select()
-            .single();
+            const { data, error } = await this.supabase
+                .from('profiles')
+                .insert([profile])
+                .select()
+                .single();
 
-        if (error) {
-            console.error('Error registering user:', error);
-            if (error.code === '23505') { // Unique violation
-                return { error: 'Username already taken' };
+            if (error) {
+                this._logDbError('registerUser.insert', error, { username });
+                if (error.code === '23505') {
+                    return { error: 'Username already taken' };
+                }
+                return { error: error.message };
             }
-            return { error: error.message };
-        }
 
-        return { data: this._mapDbProfileToGameData(data), error: null };
+            return { data: this._mapDbProfileToGameData(data), error: null };
+        } catch (error) {
+            this._logDbError('registerUser.catch', error, { username });
+            return { error: 'Internal registration error' };
+        }
     }
 
     /**
@@ -69,36 +94,50 @@ class DatabaseService {
     async loginUser(username, password) {
         if (!this.supabase) return { error: 'Database not configured' };
 
-        // Fetch user by username (including password_hash)
-        const { data: dbProfile, error } = await this.supabase
-            .from('profiles')
-            .select('*')
-            .eq('username', username)
-            .single();
+        try {
+            const { data: dbProfile, error } = await this.supabase
+                .from('profiles')
+                .select('*')
+                .eq('username', username)
+                .single();
 
-        if (error || !dbProfile) {
-            return { error: 'User not found' };
+            if (error || !dbProfile) {
+                if (error && error.code !== 'PGRST116') {
+                    this._logDbError('loginUser.select', error, { username });
+                }
+                return { error: 'User not found' };
+            }
+
+            const isMatch = await bcrypt.compare(password, dbProfile.password_hash);
+            if (!isMatch) {
+                return { error: 'Invalid password' };
+            }
+
+            const sessionToken = uuidv4();
+            let persistedSessionToken = null;
+
+            const { error: sessionError } = await this.supabase
+                .from('profiles')
+                .update({ session_token: sessionToken, updated_at: new Date() })
+                .eq('id', dbProfile.id);
+
+            if (sessionError) {
+                this._logDbError('loginUser.updateSessionToken', sessionError, { username, profileId: dbProfile.id });
+                if (!this._isMissingColumnError(sessionError, 'session_token')) {
+                    return { error: 'Failed to create session token' };
+                }
+            } else {
+                persistedSessionToken = sessionToken;
+            }
+
+            const gameData = this._mapDbProfileToGameData(dbProfile);
+            gameData.sessionToken = persistedSessionToken;
+
+            return { data: gameData, error: null };
+        } catch (error) {
+            this._logDbError('loginUser.catch', error, { username });
+            return { error: 'Internal login error' };
         }
-
-        // Verify password
-        const isMatch = await bcrypt.compare(password, dbProfile.password_hash);
-        if (!isMatch) {
-            return { error: 'Invalid password' };
-        }
-
-        // Generate Session Token
-        const sessionToken = uuidv4();
-        
-        // Update profile with session token
-        await this.supabase
-            .from('profiles')
-            .update({ session_token: sessionToken, updated_at: new Date() })
-            .eq('id', dbProfile.id);
-
-        const gameData = this._mapDbProfileToGameData(dbProfile);
-        gameData.sessionToken = sessionToken; // Pass to client
-
-        return { data: gameData, error: null };
     }
 
     /**
@@ -109,20 +148,31 @@ class DatabaseService {
     async loginWithToken(token) {
         if (!this.supabase) return { error: 'Database not configured' };
 
-        const { data: dbProfile, error } = await this.supabase
-            .from('profiles')
-            .select('*')
-            .eq('session_token', token)
-            .single();
+        try {
+            const { data: dbProfile, error } = await this.supabase
+                .from('profiles')
+                .select('*')
+                .eq('session_token', token)
+                .single();
 
-        if (error || !dbProfile) {
-            return { error: 'Invalid or expired session' };
+            if (error || !dbProfile) {
+                if (error) {
+                    this._logDbError('loginWithToken.select', error, { hasToken: !!token });
+                    if (this._isMissingColumnError(error, 'session_token')) {
+                        return { error: 'Session login is unavailable: session_token column is missing in Supabase' };
+                    }
+                }
+                return { error: 'Invalid or expired session' };
+            }
+
+            const gameData = this._mapDbProfileToGameData(dbProfile);
+            gameData.sessionToken = token;
+
+            return { data: gameData, error: null };
+        } catch (error) {
+            this._logDbError('loginWithToken.catch', error, { hasToken: !!token });
+            return { error: 'Internal token login error' };
         }
-
-        const gameData = this._mapDbProfileToGameData(dbProfile);
-        gameData.sessionToken = token; // Return it back just in case
-
-        return { data: gameData, error: null };
     }
 
     /**
@@ -135,48 +185,58 @@ class DatabaseService {
     async voteReputation(targetId, voterName, voteType) {
         if (!this.supabase) return { error: 'Database not configured' };
 
-        // 1. Fetch target profile
-        const { data: profile, error: fetchError } = await this.supabase
-            .from('profiles')
-            .select('id, reputation, reputation_votes')
-            .eq('id', targetId)
-            .single();
-
-        if (fetchError || !profile) return { error: 'Target not found' };
-
-        let votes = profile.reputation_votes || {};
-        let reputation = profile.reputation || 0;
-        const prevVote = votes[voterName];
-
-        // Logic matches ReputationManager.js
-        if (prevVote === voteType) {
-            // Remove vote
-            delete votes[voterName];
-            reputation += (voteType === 'up' ? -1 : 1);
-        } else {
-            // Change or new vote
-            if (prevVote) {
-                reputation += (prevVote === 'up' ? -1 : 1); // Undo previous
+        try {
+            if (!targetId || !voterName || !['up', 'down'].includes(voteType)) {
+                return { error: 'Invalid reputation vote payload' };
             }
-            votes[voterName] = voteType;
-            reputation += (voteType === 'up' ? 1 : -1);
+
+            const { data: profile, error: fetchError } = await this.supabase
+                .from('profiles')
+                .select('id, reputation, reputation_votes')
+                .eq('id', targetId)
+                .single();
+
+            if (fetchError || !profile) {
+                if (fetchError) {
+                    this._logDbError('voteReputation.fetchTarget', fetchError, { targetId, voterName, voteType });
+                }
+                return { error: 'Target not found' };
+            }
+
+            const votes = { ...(profile.reputation_votes || {}) };
+            let reputation = profile.reputation || 0;
+            const prevVote = votes[voterName];
+
+            if (prevVote === voteType) {
+                delete votes[voterName];
+                reputation += (voteType === 'up' ? -1 : 1);
+            } else {
+                if (prevVote) {
+                    reputation += (prevVote === 'up' ? -1 : 1);
+                }
+                votes[voterName] = voteType;
+                reputation += (voteType === 'up' ? 1 : -1);
+            }
+
+            const { error: updateError } = await this.supabase
+                .from('profiles')
+                .update({ 
+                    reputation: reputation, 
+                    reputation_votes: votes,
+                    updated_at: new Date()
+                })
+                .eq('id', targetId);
+
+            if (updateError) {
+                this._logDbError('voteReputation.updateTarget', updateError, { targetId, voterName, voteType, reputation });
+                return { error: updateError.message };
+            }
+
+            return { data: { reputation, voteType }, error: null };
+        } catch (error) {
+            this._logDbError('voteReputation.catch', error, { targetId, voterName, voteType });
+            return { error: 'Internal reputation vote error' };
         }
-
-        // 2. Update DB
-        const { data: updated, error: updateError } = await this.supabase
-            .from('profiles')
-            .update({ 
-                reputation: reputation, 
-                reputation_votes: votes,
-                updated_at: new Date()
-            })
-            .eq('id', targetId)
-            .select()
-            .single();
-
-        if (updateError) return { error: updateError.message };
-
-        return { data: { reputation, voteType }, error: null };
     }
 
     /**
@@ -187,16 +247,24 @@ class DatabaseService {
     async getPlayersInLocation(locationId) {
         if (!this.supabase) return { error: 'Database not configured' };
 
-        const { data, error } = await this.supabase
-            .from('profiles')
-            .select('*') // Select all to map correctly
-            .eq('location_id', locationId)
-            .order('updated_at', { ascending: false })
-            .limit(50); // Limit to prevent overload
+        try {
+            const { data, error } = await this.supabase
+                .from('profiles')
+                .select('*')
+                .eq('location_id', locationId)
+                .order('updated_at', { ascending: false })
+                .limit(50);
 
-        if (error) return { error: error.message };
+            if (error) {
+                this._logDbError('getPlayersInLocation.select', error, { locationId });
+                return { error: error.message };
+            }
 
-        return { data: data.map(p => this._mapDbProfileToGameData(p)), error: null };
+            return { data: (data || []).map(p => this._mapDbProfileToGameData(p)), error: null };
+        } catch (error) {
+            this._logDbError('getPlayersInLocation.catch', error, { locationId });
+            return { error: 'Internal location query error' };
+        }
     }
 
     /**
@@ -206,6 +274,10 @@ class DatabaseService {
      */
     async saveProfile(playerData) {
         if (!this.supabase) return { error: 'Database not configured' };
+
+        if (!playerData?.id) {
+            return { error: 'Player ID is required for saveProfile' };
+        }
 
         // Map game data to database columns
         const profile = {
@@ -268,20 +340,30 @@ class DatabaseService {
         // Remove undefined keys to avoid issues
         Object.keys(profile).forEach(key => profile[key] === undefined && delete profile[key]);
 
-        // Use update() instead of upsert() because upsert() tries an INSERT first, 
-        // which fails due to missing password_hash (NOT NULL constraint).
-        // Since we only save for existing users, update() is correct.
-        const { data, error } = await this.supabase
-            .from('profiles')
-            .update(profile)
-            .eq('id', profile.id)
-            .select();
+        try {
+            const { data, error } = await this.supabase
+                .from('profiles')
+                .update(profile)
+                .eq('id', profile.id)
+                .select();
 
-        if (error) {
-            console.error('Error saving profile:', error);
+            if (error) {
+                this._logDbError('saveProfile.update', error, {
+                    profileId: profile.id,
+                    username: profile.username,
+                    locationId: profile.location_id
+                });
+            }
+
+            return { data, error };
+        } catch (error) {
+            this._logDbError('saveProfile.catch', error, {
+                profileId: profile.id,
+                username: profile.username,
+                locationId: profile.location_id
+            });
+            return { data: null, error };
         }
-
-        return { data, error };
     }
 
     /**
@@ -292,20 +374,25 @@ class DatabaseService {
     async loadProfile(username) {
         if (!this.supabase) return { error: 'Database not configured' };
 
-        const { data: dbProfile, error } = await this.supabase
-            .from('profiles')
-            .select('*')
-            .eq('username', username)
-            .single();
+        try {
+            const { data: dbProfile, error } = await this.supabase
+                .from('profiles')
+                .select('*')
+                .eq('username', username)
+                .single();
 
-        if (error) {
-            if (error.code !== 'PGRST116') { // PGRST116 is "Row not found"
-                console.error('Error loading profile:', error);
+            if (error) {
+                if (error.code !== 'PGRST116') {
+                    this._logDbError('loadProfile.select', error, { username });
+                }
+                return { data: null, error };
             }
+
+            return { data: this._mapDbProfileToGameData(dbProfile), error: null };
+        } catch (error) {
+            this._logDbError('loadProfile.catch', error, { username });
             return { data: null, error };
         }
-
-        return { data: this._mapDbProfileToGameData(dbProfile), error: null };
     }
     
     /**
@@ -316,15 +403,23 @@ class DatabaseService {
     async loadProfileById(id) {
         if (!this.supabase) return { error: 'Database not configured' };
 
-        const { data: dbProfile, error } = await this.supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', id)
-            .single();
+        try {
+            const { data: dbProfile, error } = await this.supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', id)
+                .single();
 
-        if (error) return { data: null, error };
+            if (error) {
+                this._logDbError('loadProfileById.select', error, { id });
+                return { data: null, error };
+            }
 
-        return { data: this._mapDbProfileToGameData(dbProfile), error: null };
+            return { data: this._mapDbProfileToGameData(dbProfile), error: null };
+        } catch (error) {
+            this._logDbError('loadProfileById.catch', error, { id });
+            return { data: null, error };
+        }
     }
 
     /**

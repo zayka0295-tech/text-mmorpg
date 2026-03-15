@@ -6,6 +6,7 @@ create table profiles (
   id uuid primary key default uuid_generate_v4(),
   username text not null unique,
   password_hash text not null, -- Stores the bcrypt hash of the password
+  session_token text,
   
   -- Basic Info
   class_name text,

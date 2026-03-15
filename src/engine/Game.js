@@ -85,6 +85,10 @@ export class Game {
             const { profile, token } = e.detail;
             console.log('Auth success, profile:', profile);
             
+            if (profile?.name) {
+                localStorage.setItem('sw_last_username', profile.name);
+            }
+
             if (token) {
                 localStorage.setItem('sw_session_token', token);
             }
@@ -110,7 +114,7 @@ export class Game {
                 this.isAutoLoggingIn = false;
                 localStorage.removeItem('sw_session_token'); // Clear bad token
                 this.showAuthScreen();
-                Notifications.show('Сессия истекла. Пожалуйста, войдите снова.', 'warning');
+                Notifications.show('Сессия не восстановилась. Логин сохранён, введите пароль ещё раз.', 'warning');
             } else {
                 Notifications.show(e.detail.message || 'Ошибка авторизации', 'error');
             }

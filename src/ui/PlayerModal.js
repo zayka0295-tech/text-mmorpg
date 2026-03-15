@@ -11,6 +11,10 @@ export class PlayerModal {
     constructor(playerSelf, screenManager) {
         this.playerSelf = playerSelf; //Текущий игрок (наш)
         this.screenManager = screenManager;
+        this.currentTarget = null;
+        this.waitingForTargetId = null;
+        this.waitingForTargetName = null;
+        this.profileRequestTimeoutId = null;
         
         // Нові системи
         this.statsSystem = new PlayerStatsSystem(playerSelf);
@@ -19,6 +23,40 @@ export class PlayerModal {
         
         this._createDOM();
         this._initEvents();
+    }
+
+    _normalizeTargetData(target) {
+        if (!target) return null;
+
+        const constitution = target.constitution ?? target.totalConstitution ?? target.baseConstitution ?? 10;
+        const strength = target.strength ?? target.totalStrength ?? target.baseStrength ?? 10;
+        const agility = target.agility ?? target.totalAgility ?? target.baseAgility ?? 10;
+        const intellect = target.intellect ?? target.totalIntellect ?? target.baseIntellect ?? 10;
+        const hp = target.hp ?? 100;
+        const maxHp = target.maxHp ?? target.totalMaxHp ?? target.baseMaxHp ?? hp ?? 100;
+
+        return {
+            className: 'Контрабандист',
+            title: null,
+            level: 1,
+            hp,
+            maxHp,
+            money: 0,
+            attack: target.attack ?? target.totalAttack ?? target.baseAttack ?? 0,
+            defense: target.defense ?? target.totalDefense ?? target.baseDefense ?? 0,
+            strength,
+            agility,
+            constitution,
+            intellect,
+            alignment: 0,
+            isOnline: false,
+            locationId: 'unknown',
+            reputation: 0,
+            reputationVotes: {},
+            ship: null,
+            avatar: '🧑🚀',
+            ...target
+        };
     }
 
     _initEvents() {
@@ -32,18 +70,53 @@ export class PlayerModal {
             const { senderId, data } = e.detail;
             // If the modal is waiting for this target (the sender of the data), render it
             if (this.waitingForTargetId === senderId) {
+                if (this.profileRequestTimeoutId) {
+                    clearTimeout(this.profileRequestTimeoutId);
+                    this.profileRequestTimeoutId = null;
+                }
                 // Merge received data with basic info we might already have
-                const target = {
+                const target = this._normalizeTargetData({
                     id: senderId,
                     name: data.name,
                     // Use data from network, fallback to defaults
                     ...data,
-                    isOnline: true // We just got a packet, so they are online
-                };
+                    isOnline: data.isOnline ?? false
+                });
                 this.waitingForTargetId = null;
+                this.waitingForTargetName = null;
+                this.currentTarget = target;
                 this._render(target);
                 document.getElementById('player-modal').classList.add('active');
             }
+        });
+
+        document.addEventListener('network:reputation_vote_result', (e) => {
+            const { ok, targetId, voteType } = e.detail;
+            if (!ok || !this.currentTarget || this.currentTarget.id !== targetId) return;
+
+            const nextVotes = { ...(this.currentTarget.reputationVotes || {}) };
+            const prevVote = nextVotes[this.playerSelf.name];
+            let nextReputation = this.currentTarget.reputation || 0;
+
+            if (prevVote === voteType) {
+                delete nextVotes[this.playerSelf.name];
+                nextReputation += (voteType === 'up' ? -1 : 1);
+            } else {
+                if (prevVote) {
+                    nextReputation += (prevVote === 'up' ? -1 : 1);
+                }
+                nextVotes[this.playerSelf.name] = voteType;
+                nextReputation += (voteType === 'up' ? 1 : -1);
+            }
+
+            this.currentTarget = {
+                ...this.currentTarget,
+                reputation: typeof e.detail.newReputation === 'number' ? e.detail.newReputation : nextReputation,
+                reputationVotes: nextVotes
+            };
+
+            this._render(this.currentTarget);
+            this._showResult(voteType === 'up' ? '👍 Репутация повышена' : '👎 Репутация понижена', 'success');
         });
     }
 
@@ -57,14 +130,50 @@ export class PlayerModal {
         document.getElementById('game-container').appendChild(el);
     }
 
-    show(playerName, targetId = null) {
+    show(playerName, targetId = null, targetPreview = null) {
         //Не открываем свой собственный профиль
         if (playerName === this.playerSelf.name) return;
 
         // Если это сетевой игрок (targetId передан), запрашиваем профиль
         if (targetId && this.playerSelf.networkMgr) {
+            if (targetPreview) {
+                const previewTarget = this._normalizeTargetData({
+                    ...targetPreview,
+                    id: targetId,
+                    name: targetPreview.name || playerName,
+                    isOnline: !!targetPreview.isOnline
+                });
+                this.currentTarget = previewTarget;
+                this._render(previewTarget);
+                document.getElementById('player-modal').classList.add('active');
+                this._showResult('⏳ Загружаем полный профиль...', 'success');
+            }
+
             this.waitingForTargetId = targetId;
+            this.waitingForTargetName = playerName;
+            if (this.profileRequestTimeoutId) {
+                clearTimeout(this.profileRequestTimeoutId);
+            }
             this.playerSelf.networkMgr.requestProfile(targetId);
+            this.profileRequestTimeoutId = setTimeout(() => {
+                if (this.waitingForTargetId !== targetId) return;
+                const fallbackTarget = this._resolveTarget(targetId, playerName);
+                this.waitingForTargetId = null;
+                this.waitingForTargetName = null;
+                this.profileRequestTimeoutId = null;
+                if (fallbackTarget) {
+                    this.currentTarget = fallbackTarget;
+                    this._render(fallbackTarget);
+                    document.getElementById('player-modal').classList.add('active');
+                } else {
+                    if (this.currentTarget) {
+                        document.getElementById('player-modal').classList.add('active');
+                        this._showResult('⚠️ Показаны неполные данные игрока.', 'error');
+                    } else {
+                        this._showResult('❌ Профиль игрока не загрузился.', 'error');
+                    }
+                }
+            }, 3000);
             
             // Show loading state (optional, or just wait)
             // For now, we just wait. If it's fast, it will pop up instantly.
@@ -80,7 +189,7 @@ export class PlayerModal {
             if (raw) {
                     const data = JSON.parse(raw);
                     //Формируем объект, совместимый с PlayerModal
-                    target = {
+                    target = this._normalizeTargetData({
                         id: `real_${playerName}`,
                         name: playerName,
                         avatar: data.avatar ||'🧑🚀',
@@ -102,22 +211,30 @@ export class PlayerModal {
                         reputation: data.reputation || 0,
                         reputationVotes: data.reputationVotes || {},
                         ship: data.ship || null
-                    };
+                    });
                 }
         } catch (e) { /* ignore */ }
 
         if (!target) return;
 
+        this.currentTarget = target;
         this._render(target);
         document.getElementById('player-modal').classList.add('active');
     }
 
     hide() {
         const modal = document.getElementById('player-modal');
+        if (this.profileRequestTimeoutId) {
+            clearTimeout(this.profileRequestTimeoutId);
+            this.profileRequestTimeoutId = null;
+        }
+        this.waitingForTargetId = null;
+        this.waitingForTargetName = null;
         if (modal) modal.classList.remove('active');
     }
 
     _render(target) {
+        this.currentTarget = target;
         const isRealPlayer = true; // All targets are now real players
         const canRob = target.money > 0;
         const robCooldown = '';
@@ -384,15 +501,15 @@ export class PlayerModal {
                 <!-- ИМУЩЕСТВО -->
                 <div class="profile-section profile-section-last" style="margin-bottom: 20px;">
                     <div class="profile-section-title">ИМУЩЕСТВО</div>
-                    ${target.ship ? (() => {
-                        const shipItem=ITEMS[target.ship.id] || target.ship; // Fallback if ship only has basic data
+                    ${target.ship && target.ship.id && ITEMS[target.ship.id] ? (() => {
+                        const shipItem = ITEMS[target.ship.id];
 
                         return`
                         <div class="profile-ship-card">
                             <div class="ship-icon" style="background-image:url('/public/assets/ships/${{ 'ship_ebon_hawk': 'ebon_hawk', 'ship_fury_interceptor': 'sith_fury', 'ship_phantom': 'phantom', 'ship_defender': 'defender' }[target.ship.id] || 'ebon_hawk'}.png');background-size:cover;background-position:center;border-radius:8px;"></div>
                             <div class="ship-info">
-                                <div class="ship-name">${(shipItem?.name || '') || 'Неизвестный корабль'}</div>
-                                <div class="ship-desc">${shipItem.description || 'Отсутствует описание'}</div>
+                                <div class="ship-name">${shipItem.name}</div>
+                                <div class="ship-desc">${shipItem.description}</div>
                             </div>
                         </div>
                         `;
@@ -421,7 +538,9 @@ export class PlayerModal {
             targetId,
             voteType,
             (newTargetId) => {
-                const target = this._resolveTarget(newTargetId);
+                const target = this.currentTarget?.id === newTargetId
+                    ? this.currentTarget
+                    : this._resolveTarget(newTargetId, this.currentTarget?.name);
                 if (target) this._render(target);
             },
             (errorMsg) => this._showResult(errorMsg, 'error')
@@ -431,16 +550,16 @@ export class PlayerModal {
 
 
     // Решает цель по ID - это может быть бот или реальный игрок с другой вкладки
-    _resolveTarget(id) {
+    _resolveTarget(id, fallbackName = null) {
         let pvpTarget = PvPManager.resolveTarget(id);
-        if (!pvpTarget && id.startsWith('real_')) {
-            const playerName = id.replace('real_', '');
+        if (!pvpTarget) {
+            const playerName = typeof id === 'string' && id.startsWith('real_') ? id.replace('real_', '') : (fallbackName || id);
             try {
                 const raw = localStorage.getItem(`sw_player_save_${playerName}`);
                 if (raw) {
                     const data = JSON.parse(raw);
-                    pvpTarget = {
-                        id: `real_${playerName}`,
+                    pvpTarget = this._normalizeTargetData({
+                        id: id || `real_${playerName}`,
                         name: playerName,
                         avatar: data.avatar || '🧑🚀',
                         className: 'Контрабандист',
@@ -456,12 +575,12 @@ export class PlayerModal {
                         constitution: data.totalConstitution || data.baseConstitution || 10,
                         intellect: data.totalIntellect || data.baseIntellect || 10,
                         alignment: data.alignment || 0,
-                        isOnline: true,
+                        isOnline: (Date.now() - (data.lastOnline || 0)) < 60000,
                         locationId: data.locationId || 'unknown',
                         reputation: data.reputation || 0,
                         reputationVotes: data.reputationVotes || {},
                         ship: data.ship || null
-                    };
+                    });
                 }
             } catch(e) {}
         }

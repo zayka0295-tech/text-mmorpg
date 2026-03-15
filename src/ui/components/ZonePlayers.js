@@ -9,6 +9,42 @@ export class ZonePlayers {
         this._initNetworkListeners();
     }
 
+    _findPlayerKey(id, name) {
+        if (id && this.onlinePlayers.has(id)) {
+            return id;
+        }
+
+        if (name) {
+            for (const [key, player] of this.onlinePlayers.entries()) {
+                if (player.name === name) {
+                    return key;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    _upsertPlayer(playerData) {
+        if (!playerData) return;
+
+        const key = this._findPlayerKey(playerData.id, playerData.name);
+        const existing = key ? this.onlinePlayers.get(key) : null;
+        const merged = {
+            ...(existing || {}),
+            ...playerData
+        };
+
+        const nextKey = playerData.id || key;
+        if (!nextKey) return;
+
+        if (key && key !== nextKey) {
+            this.onlinePlayers.delete(key);
+        }
+
+        this.onlinePlayers.set(nextKey, merged);
+    }
+
     _initNetworkListeners() {
         document.addEventListener('network:zone_population', (e) => {
             const { players } = e.detail;
@@ -16,28 +52,24 @@ export class ZonePlayers {
             players.forEach(p => {
                 // Only add if not self (though server might filter? No, server sends all DB players)
                 // We filter self in render, but good to have all data.
-                this.onlinePlayers.set(p.id, p);
+                this._upsertPlayer(p);
             });
             this.refreshPlayersInZone();
         });
 
         document.addEventListener('network:player_joined', (e) => {
-            const { id, name, locationId } = e.detail;
+            const { id, name, locationId, avatar, title, level, alignment } = e.detail;
             // If they joined in my zone, add them or update status
             if (locationId === this.player.locationId) {
-                const existing = this.onlinePlayers.get(id);
-                if (existing) {
-                    existing.isOnline = true;
-                } else {
-                    this.onlinePlayers.set(id, { id, name, locationId, isOnline: true });
-                }
+                this._upsertPlayer({ id, name, locationId, avatar, title, level, alignment, isOnline: true });
                 this.refreshPlayersInZone();
             }
         });
 
         document.addEventListener('network:player_left', (e) => {
-            const { id } = e.detail;
-            const p = this.onlinePlayers.get(id);
+            const { id, name } = e.detail;
+            const key = this._findPlayerKey(id, name);
+            const p = key ? this.onlinePlayers.get(key) : null;
             if (p) {
                 p.isOnline = false; // Mark offline instead of deleting
                 this.refreshPlayersInZone();
@@ -48,7 +80,8 @@ export class ZonePlayers {
             const { senderId, locationId } = e.detail;
             // If moved INTO my zone
             if (locationId === this.player.locationId) {
-                const p = this.onlinePlayers.get(senderId);
+                const key = this._findPlayerKey(senderId, e.detail.senderName);
+                const p = key ? this.onlinePlayers.get(key) : null;
                 if (p) {
                     p.locationId = locationId;
                     p.isOnline = true;
@@ -65,9 +98,9 @@ export class ZonePlayers {
                     // If they arrived, we might miss name.
                     // But wait, server/index.js line 230: broadcast(message, ws).
                     // message has senderName added in line 47!
-                    this.onlinePlayers.set(senderId, { 
+                    this._upsertPlayer({ 
                         id: senderId, 
-                        name: e.detail.senderName || `Игрок ${senderId.substr(0,4)}`, 
+                        name: e.detail.senderName || `Игрок ${senderId.substr(0,4)}`,
                         locationId, 
                         isOnline: true 
                     });
@@ -76,8 +109,9 @@ export class ZonePlayers {
             } 
             // If moved OUT of my zone
             else {
-                if (this.onlinePlayers.has(senderId)) {
-                    this.onlinePlayers.delete(senderId);
+                const key = this._findPlayerKey(senderId, e.detail.senderName);
+                if (key && this.onlinePlayers.has(key)) {
+                    this.onlinePlayers.delete(key);
                     this.refreshPlayersInZone();
                 }
             }
@@ -241,7 +275,8 @@ export class ZonePlayers {
                 const name = card.getAttribute('data-playername');
                 const id = card.getAttribute('data-playerid');
                 const modal = window.gameInstance?.playerModal;
-                if (name && modal) modal.show(name, id);
+                const preview = id ? this.onlinePlayers.get(id) || null : null;
+                if (name && modal) modal.show(name, id, preview);
             });
         });
     }

@@ -3,10 +3,32 @@ import { Notifications } from '../../ui/Notifications.js';
 export class ReputationManager {
     constructor(player) {
         this.player = player;
+        this.pendingVotes = new Map();
+
+        document.addEventListener('network:reputation_vote_result', (e) => {
+            const { targetId, voteType, ok, error } = e.detail;
+            const key = `${targetId}:${voteType}`;
+            const pending = this.pendingVotes.get(key);
+
+            if (!pending) return;
+
+            clearTimeout(pending.timeoutId);
+            this.pendingVotes.delete(key);
+
+            if (ok) {
+                Notifications.show(voteType === 'up' ? '👍 Голос ЗА принят сервером' : '👎 Голос ПРОТИВ принят сервером', 'success');
+                if (pending.onSuccess) pending.onSuccess(targetId);
+            } else {
+                console.error('[ReputationManager.voteResult]', { targetId, voteType, error });
+                const errorMsg = error || '❌ Сервер не смог обработать голосование.';
+                Notifications.show(errorMsg, 'error');
+                if (pending.onError) pending.onError(errorMsg);
+            }
+        });
     }
 
     vote(targetId, voteType, onSuccess, onError) {
-        const targetName = targetId.startsWith('real_') ? targetId.slice(5) : targetId;
+        const targetName = typeof targetId === 'string' && targetId.startsWith('real_') ? targetId.slice(5) : targetId;
 
         if (targetName === this.player.name) {
             Notifications.show('❌ Нельзя голосовать за себя!', 'error');
@@ -16,12 +38,52 @@ export class ReputationManager {
 
         // 1. Network Logic
         if (this.player.networkMgr) {
-            this.player.networkMgr.sendReputationVote(targetId, voteType);
-            Notifications.show(voteType === 'up' ? '👍 Вы проголосовали ЗА' : '👎 Вы проголосовали ПРОТИВ', 'success');
-            // Optimistically update local UI? 
-            // We can't easily update the target's data in our UI until they send it back, 
-            // but for now we just show success.
-            if (onSuccess) onSuccess(targetId);
+            try {
+                const key = `${targetId}:${voteType}`;
+                const sent = this.player.networkMgr.sendReputationVote(targetId, voteType);
+
+                if (!sent) {
+                    const errorMsg = '❌ Не удалось отправить голос на сервер.';
+                    console.error('[ReputationManager.vote]', {
+                        error: errorMsg,
+                        targetId,
+                        voteType,
+                        playerName: this.player.name
+                    });
+                    Notifications.show(errorMsg, 'error');
+                    if (onError) onError(errorMsg);
+                    return;
+                }
+
+                const timeoutId = setTimeout(() => {
+                    const pending = this.pendingVotes.get(key);
+                    if (!pending) return;
+
+                    this.pendingVotes.delete(key);
+                    const errorMsg = '❌ Сервер не подтвердил голосование. Проверьте Render logs.';
+                    console.error('[ReputationManager.voteTimeout]', {
+                        targetId,
+                        voteType,
+                        playerName: this.player.name
+                    });
+                    Notifications.show(errorMsg, 'error');
+                    if (pending.onError) pending.onError(errorMsg);
+                }, 10000);
+
+                this.pendingVotes.set(key, { onSuccess, onError, timeoutId });
+                Notifications.show('⏳ Отправляем голос на сервер...', 'info');
+            } catch (e) {
+                console.error('[ReputationManager.vote.network]', {
+                    message: e?.message,
+                    stack: e?.stack,
+                    targetId,
+                    voteType,
+                    playerName: this.player.name
+                });
+                const errorMsg = '❌ Ошибка отправки голосования.';
+                Notifications.show(errorMsg, 'error');
+                if (onError) onError(errorMsg);
+            }
             return;
         }
 
@@ -52,6 +114,13 @@ export class ReputationManager {
             localStorage.setItem(`sw_player_save_${targetName}`, JSON.stringify(pData));
             if (onSuccess) onSuccess(targetId);
         } catch (e) {
+            console.error('[ReputationManager.vote.local]', {
+                message: e?.message,
+                stack: e?.stack,
+                targetId,
+                voteType,
+                playerName: this.player.name
+            });
             if (onError) onError('❌ Ошибка голосования.');
         }
     }

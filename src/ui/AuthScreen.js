@@ -1,6 +1,7 @@
 import { Notifications } from './Notifications.js';
 
 const USERS_STORAGE_KEY = 'sw_registered_users';
+const LAST_USERNAME_STORAGE_KEY = 'sw_last_username';
 
 export class AuthScreen {
     constructor(onAuthSuccess) {
@@ -69,6 +70,7 @@ export class AuthScreen {
         this._renderRaces();
         this._renderClasses();
         this._renderAccounts();
+        this._prefillLastUsername();
 
         this.toRegisterLink.addEventListener('click', (e) => {
             console.log('To Register clicked');
@@ -160,6 +162,19 @@ export class AuthScreen {
             });
         });
         console.log('AuthScreen _init completed');
+    }
+
+    _prefillLastUsername() {
+        const lastUsername = localStorage.getItem(LAST_USERNAME_STORAGE_KEY) || '';
+        if (!lastUsername) return;
+
+        if (this.loginUsername && !this.loginUsername.value) {
+            this.loginUsername.value = lastUsername;
+        }
+
+        if (this.registerUsername && !this.registerUsername.value) {
+            this.registerUsername.value = lastUsername;
+        }
     }
 
     _renderAccounts() {
@@ -330,6 +345,8 @@ export class AuthScreen {
             return;
         }
 
+        localStorage.setItem(LAST_USERNAME_STORAGE_KEY, username);
+
         // Pass to Game.js for network auth
         this.onAuthSuccess(username, password, null, null, 'login');
     }
@@ -364,6 +381,8 @@ export class AuthScreen {
         const selectedRace = this.races[this.currentRaceIndex];
         const selectedClass = this.classes[this.currentClassIndex];
         console.log('Selected Race:', selectedRace, 'Selected Class:', selectedClass);
+
+        localStorage.setItem(LAST_USERNAME_STORAGE_KEY, username);
 
         // Pass to Game.js for network auth
         this.onAuthSuccess(username, password, selectedRace, selectedClass, 'register');

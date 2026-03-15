@@ -215,19 +215,8 @@ export class ProfileScreen {
                 <!-- ИМУЩЕСТВО -->
                 <div class="profile-section profile-section-last">
                     <div class="profile-section-title">ИМУЩЕСТВО</div>
-                    ${this.player.ship ? (() => {
+                    ${this.player.ship && this.player.ship.id && ITEMS[this.player.ship.id] ? (() => {
                         const shipItem = ITEMS[this.player.ship.id];
-                        // Safety check: if ship item definition is missing
-                        if (!shipItem) {
-                            return `
-                            <div class="profile-ship-card">
-                                <div class="ship-icon" style="background-color: #333; display: flex; align-items: center; justify-content: center;">❓</div>
-                                <div class="ship-info">
-                                    <div class="ship-name">Неизвестный корабль</div>
-                                    <div class="ship-desc">ID: ${this.player.ship.id}</div>
-                                </div>
-                            </div>`;
-                        }
 
                         const maxHp = shipItem.stats?.maxHp || 100;
                         const hpPercent = Math.round((this.player.ship.hp / maxHp) * 100);

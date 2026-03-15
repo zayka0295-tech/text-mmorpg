@@ -17,6 +17,23 @@ const PORT = process.env.PORT || 8081;
 const projectRoot = path.join(__dirname, '../');
 app.use(express.static(projectRoot));
 
+function getStablePlayerId(metadata) {
+    return metadata?.dbId || metadata?.id;
+}
+
+function hasOpenConnectionForPlayer(playerId, excludedWs = null) {
+    if (!playerId) return false;
+
+    for (const [client, metadata] of clients) {
+        if (client === excludedWs || client.readyState !== WebSocket.OPEN) continue;
+        if (getStablePlayerId(metadata) === playerId) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Fallback to index.html for any other requests
 app.get('*', (req, res) => {
     res.sendFile(path.join(projectRoot, 'index.html'));
@@ -42,7 +59,7 @@ wss.on('connection', (ws) => {
             const metadata = clients.get(ws);
 
             // Ensure sender info is correct
-            message.senderId = metadata.id;
+            message.senderId = getStablePlayerId(metadata);
             message.senderColor = metadata.color;
             if (metadata.name) message.senderName = metadata.name;
 
@@ -54,12 +71,13 @@ wss.on('connection', (ws) => {
 
     ws.on('close', () => {
         const metadata = clients.get(ws);
+        const stablePlayerId = getStablePlayerId(metadata);
         clients.delete(ws);
         console.log(`Player disconnected: ${id} (${metadata?.name || 'anonymous'})`);
         
-        if (metadata && metadata.name) {
+        if (metadata && metadata.name && !hasOpenConnectionForPlayer(stablePlayerId)) {
              // Notify others only if they were logged in
-            broadcast({ type: 'player_left', id: metadata.id, name: metadata.name });
+            broadcast({ type: 'player_left', id: stablePlayerId, name: metadata.name, locationId: metadata.locationId });
         }
     });
 });
@@ -79,13 +97,7 @@ async function sendZonePopulation(ws, locationId) {
     // 2. Map to format expected by client, marking online status
     const population = dbPlayers.map(p => {
         // Check if online
-        let isOnline = false;
-        for (const [client, meta] of clients) {
-            if (meta.name === p.name && client.readyState === WebSocket.OPEN) {
-                isOnline = true;
-                break;
-            }
-        }
+        const isOnline = hasOpenConnectionForPlayer(p.id);
         
         return {
             id: p.id,
@@ -106,8 +118,8 @@ async function sendZonePopulation(ws, locationId) {
 }
 
 async function handleMessage(ws, message, metadata) {
-    // Check for direct message target
-    if (message.targetId) {
+    // Only profile_data is pure pass-through. Other targetId messages need handler logic.
+    if (message.type === 'profile_data' && message.targetId) {
         sendTo(message.targetId, message);
         return;
     }
@@ -132,7 +144,17 @@ async function handleMessage(ws, message, metadata) {
                     ws.send(JSON.stringify({ type: 'login_success', profile, token: profile.sessionToken }));
                     
                     // Broadcast join
-                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name, locationId: profile.locationId }, ws);
+                    broadcast({
+                        type: 'player_joined',
+                        id: getStablePlayerId(metadata),
+                        name: profile.name,
+                        locationId: profile.locationId,
+                        avatar: profile.avatar,
+                        title: profile.title,
+                        level: profile.level,
+                        alignment: profile.alignment,
+                        isOnline: true
+                    }, ws);
 
                     // Send population of the current zone to the user
                     await sendZonePopulation(ws, profile.locationId);
@@ -148,7 +170,8 @@ async function handleMessage(ws, message, metadata) {
             try {
                 const tokenResult = await db.loginWithToken(message.token);
                 if (tokenResult.error) {
-                    ws.send(JSON.stringify({ type: 'login_error', message: "Session expired" }));
+                    console.error('Token login error:', tokenResult.error);
+                    ws.send(JSON.stringify({ type: 'login_error', message: tokenResult.error }));
                 } else {
                     const profile = tokenResult.data;
                     metadata.name = profile.name;
@@ -157,7 +180,17 @@ async function handleMessage(ws, message, metadata) {
                     clients.set(ws, metadata);
                     
                     ws.send(JSON.stringify({ type: 'login_success', profile, token: profile.sessionToken }));
-                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name, locationId: profile.locationId }, ws);
+                    broadcast({
+                        type: 'player_joined',
+                        id: getStablePlayerId(metadata),
+                        name: profile.name,
+                        locationId: profile.locationId,
+                        avatar: profile.avatar,
+                        title: profile.title,
+                        level: profile.level,
+                        alignment: profile.alignment,
+                        isOnline: true
+                    }, ws);
 
                     // Send population of the current zone to the user
                     await sendZonePopulation(ws, profile.locationId);
@@ -182,7 +215,17 @@ async function handleMessage(ws, message, metadata) {
                     clients.set(ws, metadata);
                     
                     ws.send(JSON.stringify({ type: 'register_success', profile }));
-                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name, locationId: profile.locationId }, ws);
+                    broadcast({
+                        type: 'player_joined',
+                        id: getStablePlayerId(metadata),
+                        name: profile.name,
+                        locationId: profile.locationId,
+                        avatar: profile.avatar,
+                        title: profile.title,
+                        level: profile.level,
+                        alignment: profile.alignment,
+                        isOnline: true
+                    }, ws);
 
                     // Send population of the current zone to the user
                     await sendZonePopulation(ws, profile.locationId);
@@ -243,17 +286,49 @@ async function handleMessage(ws, message, metadata) {
         case 'auth': 
             metadata.name = message.name;
             metadata.isAnonymous = false;
+            if (message.playerId) metadata.dbId = message.playerId;
+            if (message.locationId) metadata.locationId = message.locationId;
             clients.set(ws, metadata);
-            broadcast({ type: 'player_joined', id: metadata.id, name: message.name });
+            broadcast({
+                type: 'player_joined',
+                id: getStablePlayerId(metadata),
+                name: message.name,
+                locationId: metadata.locationId,
+                avatar: message.avatar,
+                title: message.title,
+                level: message.level,
+                alignment: message.alignment,
+                isOnline: true
+            });
             break;
             
         case 'request_profile':
-             // If requesting profile of someone in DB but not online? 
-             // Currently ZonePlayers only shows online. 
-             // But if we want offline inspect, we could implement db.loadProfile here.
-             // For now, let's keep it peer-to-peer if online.
              if (message.targetId) {
-                 sendTo(message.targetId, message);
+                 if (hasOpenConnectionForPlayer(message.targetId)) {
+                     sendTo(message.targetId, message);
+                 } else {
+                     try {
+                         const profileResult = await db.loadProfileById(message.targetId);
+                         if (profileResult.error || !profileResult.data) {
+                             console.error('Request profile DB fallback failed:', {
+                                 targetId: message.targetId,
+                                 error: profileResult.error
+                             });
+                         } else {
+                             ws.send(JSON.stringify({
+                                 type: 'profile_data',
+                                 senderId: message.targetId,
+                                 data: profileResult.data
+                             }));
+                         }
+                     } catch (error) {
+                         console.error('Request profile fallback exception:', {
+                             targetId: message.targetId,
+                             message: error?.message,
+                             stack: error?.stack
+                         });
+                     }
+                 }
              }
              break;
 
@@ -271,26 +346,40 @@ async function handleMessage(ws, message, metadata) {
 
         case 'reputation_vote':
             if (message.targetId) {
-                // Use DatabaseService to handle vote atomically (works for offline too)
-                // message.senderName comes from metadata in handleMessage wrapper logic? 
-                // We need to ensure we have the voter's name.
-                // In handleMessage: if (metadata.name) message.senderName = metadata.name;
-                
                 const voterName = message.senderName || 'Anonymous';
                 
                 try {
+                    if (!message.voteType || !['up', 'down'].includes(message.voteType)) {
+                        ws.send(JSON.stringify({
+                            type: 'reputation_vote_result',
+                            ok: false,
+                            targetId: message.targetId,
+                            voteType: message.voteType,
+                            error: 'Invalid vote type'
+                        }));
+                        break;
+                    }
+
                     const result = await db.voteReputation(message.targetId, voterName, message.voteType);
                     
                     if (result.error) {
-                        console.error('Reputation vote error:', result.error);
+                        console.error('Reputation vote error:', {
+                            error: result.error,
+                            targetId: message.targetId,
+                            voteType: message.voteType,
+                            voterName,
+                            senderId: getStablePlayerId(metadata)
+                        });
+                        ws.send(JSON.stringify({
+                            type: 'reputation_vote_result',
+                            ok: false,
+                            targetId: message.targetId,
+                            voteType: message.voteType,
+                            error: result.error
+                        }));
                     } else {
-                        // Notify target if online
                         const { reputation, voteType } = result.data;
-                        
-                        // Find target connection
-                        // We need to construct a message that NetworkManager expects for 'reputation_update'
-                        // NetworkManager expects: { newReputation, voteType, voterName }
-                        
+
                         const updateMsg = {
                             type: 'reputation_update',
                             newReputation: reputation,
@@ -299,9 +388,30 @@ async function handleMessage(ws, message, metadata) {
                         };
                         
                         sendTo(message.targetId, updateMsg);
+                        ws.send(JSON.stringify({
+                            type: 'reputation_vote_result',
+                            ok: true,
+                            targetId: message.targetId,
+                            voteType,
+                            newReputation: reputation
+                        }));
                     }
                 } catch (e) {
-                    console.error('Error processing reputation vote:', e);
+                    console.error('Error processing reputation vote:', {
+                        message: e?.message,
+                        stack: e?.stack,
+                        targetId: message.targetId,
+                        voteType: message.voteType,
+                        voterName,
+                        senderId: getStablePlayerId(metadata)
+                    });
+                    ws.send(JSON.stringify({
+                        type: 'reputation_vote_result',
+                        ok: false,
+                        targetId: message.targetId,
+                        voteType: message.voteType,
+                        error: 'Internal server error while processing vote'
+                    }));
                 }
             }
             break;
@@ -315,14 +425,17 @@ function sendTo(targetId, message) {
     const data = JSON.stringify(message);
     let found = false;
     for (const [client, metadata] of clients) {
-        if (metadata.id === targetId && client.readyState === WebSocket.OPEN) {
+        if ((metadata.dbId === targetId || metadata.id === targetId) && client.readyState === WebSocket.OPEN) {
             client.send(data);
             found = true;
             return;
         }
     }
     if (!found) {
-        // Handle offline message or not found
+        console.warn('sendTo target not found or offline', {
+            targetId,
+            messageType: message?.type
+        });
     }
 }
 
