@@ -180,6 +180,26 @@ class DatabaseService {
     }
 
     /**
+     * Get all players in a specific location
+     * @param {string} locationId
+     * @returns {Promise<{data, error}>}
+     */
+    async getPlayersInLocation(locationId) {
+        if (!this.supabase) return { error: 'Database not configured' };
+
+        const { data, error } = await this.supabase
+            .from('profiles')
+            .select('*') // Select all to map correctly
+            .eq('location_id', locationId)
+            .order('updated_at', { ascending: false })
+            .limit(50); // Limit to prevent overload
+
+        if (error) return { error: error.message };
+
+        return { data: data.map(p => this._mapDbProfileToGameData(p)), error: null };
+    }
+
+    /**
      * Save or update player profile
      * @param {Object} playerData - Data object similar to what PersistenceManager saves
      * @returns {Promise<{data, error}>}
@@ -237,7 +257,7 @@ class DatabaseService {
             buffs: playerData.buffs,
             job_data: {
                 activeJob: playerData.activeJob,
-                jobEndTime: playerData.jobEndTime,
+                jobEndTime: Number(playerData.jobEndTime) || 0, // Force number
                 jobNotified: playerData.jobNotified,
                 viewingJobBoard: playerData.viewingJobBoard
             },

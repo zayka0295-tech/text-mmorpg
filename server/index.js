@@ -64,6 +64,47 @@ wss.on('connection', (ws) => {
     });
 });
 
+// Helper to send zone population
+async function sendZonePopulation(ws, locationId) {
+    if (!locationId) return;
+    
+    // 1. Get all players from DB in this location
+    const { data: dbPlayers, error } = await db.getPlayersInLocation(locationId);
+    
+    if (error || !dbPlayers) {
+        console.error('Error fetching zone population:', error);
+        return;
+    }
+
+    // 2. Map to format expected by client, marking online status
+    const population = dbPlayers.map(p => {
+        // Check if online
+        let isOnline = false;
+        for (const [client, meta] of clients) {
+            if (meta.name === p.name && client.readyState === WebSocket.OPEN) {
+                isOnline = true;
+                break;
+            }
+        }
+        
+        return {
+            id: p.id,
+            name: p.name,
+            locationId: p.locationId,
+            isOnline: isOnline,
+            avatar: p.avatar, // Ensure avatar is sent
+            title: p.title,
+            level: p.level,
+            alignment: p.alignment
+        };
+    });
+
+    ws.send(JSON.stringify({ 
+        type: 'zone_population', 
+        players: population 
+    }));
+}
+
 async function handleMessage(ws, message, metadata) {
     // Check for direct message target
     if (message.targetId) {
@@ -91,19 +132,10 @@ async function handleMessage(ws, message, metadata) {
                     ws.send(JSON.stringify({ type: 'login_success', profile, token: profile.sessionToken }));
                     
                     // Broadcast join
-                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name }, ws);
+                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name, locationId: profile.locationId }, ws);
 
-                    // Send existing online players to the new user
-                    for (const [otherWs, otherMeta] of clients) {
-                        if (otherWs !== ws && otherMeta.name && !otherMeta.isAnonymous) {
-                            ws.send(JSON.stringify({
-                                type: 'player_joined',
-                                id: otherMeta.id,
-                                name: otherMeta.name,
-                                locationId: otherMeta.locationId || 'tatooine_spaceport'
-                            }));
-                        }
-                    }
+                    // Send population of the current zone to the user
+                    await sendZonePopulation(ws, profile.locationId);
                 }
             } catch (e) {
                 console.error("Login failed:", e);
@@ -125,18 +157,10 @@ async function handleMessage(ws, message, metadata) {
                     clients.set(ws, metadata);
                     
                     ws.send(JSON.stringify({ type: 'login_success', profile, token: profile.sessionToken }));
-                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name }, ws);
+                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name, locationId: profile.locationId }, ws);
 
-                    for (const [otherWs, otherMeta] of clients) {
-                        if (otherWs !== ws && otherMeta.name && !otherMeta.isAnonymous) {
-                            ws.send(JSON.stringify({
-                                type: 'player_joined',
-                                id: otherMeta.id,
-                                name: otherMeta.name,
-                                locationId: otherMeta.locationId || 'tatooine_spaceport'
-                            }));
-                        }
-                    }
+                    // Send population of the current zone to the user
+                    await sendZonePopulation(ws, profile.locationId);
                 }
             } catch (e) {
                 console.error("Token login failed:", e);
@@ -158,19 +182,10 @@ async function handleMessage(ws, message, metadata) {
                     clients.set(ws, metadata);
                     
                     ws.send(JSON.stringify({ type: 'register_success', profile }));
-                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name }, ws);
+                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name, locationId: profile.locationId }, ws);
 
-                    // Send existing online players to the new user
-                    for (const [otherWs, otherMeta] of clients) {
-                        if (otherWs !== ws && otherMeta.name && !otherMeta.isAnonymous) {
-                            ws.send(JSON.stringify({
-                                type: 'player_joined',
-                                id: otherMeta.id,
-                                name: otherMeta.name,
-                                locationId: otherMeta.locationId || 'tatooine_spaceport'
-                            }));
-                        }
-                    }
+                    // Send population of the current zone to the user
+                    await sendZonePopulation(ws, profile.locationId);
                 }
             } catch (e) {
                 console.error("Register failed:", e);
@@ -211,7 +226,11 @@ async function handleMessage(ws, message, metadata) {
 
         case 'move': // Basic movement sync
             metadata.locationId = message.locationId; // Update server-side state
-            if (!metadata.isAnonymous) broadcast(message, ws);
+            if (!metadata.isAnonymous) {
+                broadcast(message, ws);
+                // When moving to a new zone, send the population of that zone to the player
+                await sendZonePopulation(ws, message.locationId);
+            }
             break;
 
         case 'update_state': // Full state sync (hp, location, etc.)

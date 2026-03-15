@@ -172,6 +172,9 @@ export class NetworkManager {
             case 'rob_result':
                 document.dispatchEvent(new CustomEvent('network:rob_result', { detail: message }));
                 break;
+            case 'zone_population':
+                document.dispatchEvent(new CustomEvent('network:zone_population', { detail: message }));
+                break;
             case 'reputation_vote':
                 // Someone voted for us
                 if (this.player) {

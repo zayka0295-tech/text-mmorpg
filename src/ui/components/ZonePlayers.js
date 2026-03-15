@@ -10,28 +10,76 @@ export class ZonePlayers {
     }
 
     _initNetworkListeners() {
+        document.addEventListener('network:zone_population', (e) => {
+            const { players } = e.detail;
+            this.onlinePlayers.clear();
+            players.forEach(p => {
+                // Only add if not self (though server might filter? No, server sends all DB players)
+                // We filter self in render, but good to have all data.
+                this.onlinePlayers.set(p.id, p);
+            });
+            this.refreshPlayersInZone();
+        });
+
         document.addEventListener('network:player_joined', (e) => {
             const { id, name, locationId } = e.detail;
-            this.onlinePlayers.set(id, { id, name, locationId: locationId || 'unknown', isOnline: true });
-            this.refreshPlayersInZone();
+            // If they joined in my zone, add them or update status
+            if (locationId === this.player.locationId) {
+                const existing = this.onlinePlayers.get(id);
+                if (existing) {
+                    existing.isOnline = true;
+                } else {
+                    this.onlinePlayers.set(id, { id, name, locationId, isOnline: true });
+                }
+                this.refreshPlayersInZone();
+            }
         });
 
         document.addEventListener('network:player_left', (e) => {
             const { id } = e.detail;
-            this.onlinePlayers.delete(id);
-            this.refreshPlayersInZone();
+            const p = this.onlinePlayers.get(id);
+            if (p) {
+                p.isOnline = false; // Mark offline instead of deleting
+                this.refreshPlayersInZone();
+            }
         });
 
         document.addEventListener('network:player_moved', (e) => {
             const { senderId, locationId } = e.detail;
-            const p = this.onlinePlayers.get(senderId);
-            if (p) {
-                p.locationId = locationId;
+            // If moved INTO my zone
+            if (locationId === this.player.locationId) {
+                const p = this.onlinePlayers.get(senderId);
+                if (p) {
+                    p.locationId = locationId;
+                    p.isOnline = true;
+                } else {
+                    // We need name. If we don't have it, we might need to fetch it or wait for population update.
+                    // Ideally 'move' message should include name for simple clients.
+                    // But 'zone_population' is sent on move too by server now! 
+                    // So this might be redundant if server sends population on every move.
+                    // Server code: await sendZonePopulation(ws, message.locationId);
+                    // This sends population TO THE MOVER.
+                    // But other people need to know the mover arrived.
+                    // Broadcast 'move' doesn't include name currently.
+                    // Let's rely on 'move' to just remove if they left.
+                    // If they arrived, we might miss name.
+                    // But wait, server/index.js line 230: broadcast(message, ws).
+                    // message has senderName added in line 47!
+                    this.onlinePlayers.set(senderId, { 
+                        id: senderId, 
+                        name: e.detail.senderName || `Игрок ${senderId.substr(0,4)}`, 
+                        locationId, 
+                        isOnline: true 
+                    });
+                }
                 this.refreshPlayersInZone();
-            } else {
-                // Unknown player moved, maybe we missed the join or they were already there
-                this.onlinePlayers.set(senderId, { id: senderId, name: `Игрок ${senderId.substr(0,4)}`, locationId, isOnline: true });
-                this.refreshPlayersInZone();
+            } 
+            // If moved OUT of my zone
+            else {
+                if (this.onlinePlayers.has(senderId)) {
+                    this.onlinePlayers.delete(senderId);
+                    this.refreshPlayersInZone();
+                }
             }
         });
 
@@ -79,28 +127,50 @@ export class ZonePlayers {
         const playersHere = [];
         
         for (const p of this.onlinePlayers.values()) {
-            if (p.locationId === locationId && p.id !== `real_${this.player.name}` && p.name !== this.player.name) {
+            if (p.locationId === locationId && p.id !== `real_${this.player.name}` && p.id !== this.player.id && p.name !== this.player.name) {
                 playersHere.push(p);
             }
         }
+
+        // Sort: Online first, then by name
+        playersHere.sort((a, b) => {
+            if (a.isOnline === b.isOnline) return a.name.localeCompare(b.name);
+            return b.isOnline ? 1 : -1;
+        });
 
         let html = `<style>
                 #players-in-zone::-webkit-scrollbar { display: none; }
             </style>
             <div style="background: #151515; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px;">
-                <div style="padding: 10px 15px; border-bottom: 1px solid #333; font-weight: 800; font-size: 13px; color: #f1c40f; text-transform: uppercase;">Игроки рядом (Онлайн)</div>
+                <div style="padding: 10px 15px; border-bottom: 1px solid #333; font-weight: 800; font-size: 13px; color: #f1c40f; text-transform: uppercase;">
+                    Игроки рядом (${playersHere.length})
+                </div>
                 <div id="players-in-zone" style="max-height: 210px; overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none;">`;
 
         if (playersHere.length === 0) {
             html += `<div style="padding: 15px; text-align: center; color: #666; font-size: 14px;">Никого нет рядом</div>`;
         } else {
             playersHere.forEach(p => {
-                const statusColor = '#2ecc71'; // Always online in this list
-                const avatarHtml = '🧑🚀'; // Placeholder for now
+                const isOnline = p.isOnline;
+                const statusColor = isOnline ? '#2ecc71' : '#7f8c8d';
+                const statusText = isOnline ? 'Онлайн' : 'Оффлайн';
+                const opacity = isOnline ? '1' : '0.6';
+                
+                // Use avatar if available
+                let avatarHtml = '🧑🚀';
+                if (p.avatar && (p.avatar.startsWith('data:') || p.avatar.startsWith('http'))) {
+                    avatarHtml = `<img src="${p.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`;
+                } else if (p.avatar) {
+                    avatarHtml = p.avatar;
+                }
 
                 html += `
-                    <div class="map-player-card" data-playername="${p.name}" data-playerid="${p.id}" style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; cursor: pointer; background: transparent; transition: background 0.2s;">
-                        <div style="width: 32px; height: 32px; border-radius: 6px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; flex-shrink: 0;">
+                    <div class="map-player-card" data-playername="${p.name}" data-playerid="${p.id}" style="
+                        padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); 
+                        display: flex; align-items: center; cursor: pointer; 
+                        background: transparent; transition: background 0.2s; opacity: ${opacity};
+                    ">
+                        <div style="width: 32px; height: 32px; border-radius: 6px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; flex-shrink: 0; overflow: hidden;">
                             ${avatarHtml}
                         </div>
                         <div style="flex: 1;">
@@ -110,7 +180,7 @@ export class ZonePlayers {
                                     ${p.name}
                                 </div>
                             </div>
-                            <div style="color: #999; font-size: 11px; margin-bottom: 0;">Онлайн</div>
+                            <div style="color: #999; font-size: 11px; margin-bottom: 0;">${statusText} ${p.level ? `• ${p.level} ур.` : ''}</div>
                         </div>
                     </div>
                 `;
