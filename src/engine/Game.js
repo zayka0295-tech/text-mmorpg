@@ -330,6 +330,53 @@ export class Game {
         // Recalculate derived stats
         this.player._emit('stats-changed');
 
+        // --- STAT CONSISTENCY CHECK ---
+        // Verify that stat points + spent points match the level (to prevent accumulation bugs)
+        try {
+            const level = this.player.level || 1;
+            const initialStatSum = 40; // 10 * 4 stats
+            // Initial bonuses are already applied to _base... by injectManagers
+            // But we need to know the *base* without spent points to calculate spent points.
+            // Actually, simplified logic:
+            // Total Stat Value (Base) = Initial (10*4) + RaceBonuses + ClassBonuses + PointsFromLevelUp
+            // We know Race/Class bonuses.
+            
+            // Re-calculate expected total for THIS level
+            const expectedPointsFromLevels = Math.max(0, (level - 1) * 3);
+            
+            // Calculate current total base stats (excluding equipment)
+            const currentTotalStats = this.player.baseConstitution + 
+                                      this.player.baseStrength + 
+                                      this.player.baseAgility + 
+                                      this.player.baseIntellect;
+            
+            // Calculate what the "Starting" total stats should be (10 each + bonuses)
+            // We can temporarily use StatsManager to calc bonuses without applying them?
+            // Or just hardcode logic since we know it.
+            // Better: trust currentTotalStats - statPoints = Spent + Starting.
+            // Total Available Points = Spent + statPoints.
+            // Expected Total Available = (Level - 1) * 3.
+            // So: (currentTotalStats - StartingStats) + statPoints == (Level - 1) * 3
+            // But we don't know StartingStats easily without re-running bonus logic.
+            
+            // Let's rely on the fact that `statPoints` should NOT be > expectedPointsFromLevels
+            // if we assume user spent nothing.
+            // If user spent points, statPoints should be lower.
+            // The accumulation bug usually manifests as `statPoints` growing beyond limit.
+            
+            if (this.player.statPoints > expectedPointsFromLevels) {
+                console.warn(`Stat points consistency check failed: Have ${this.player.statPoints}, Max possible for Lv${level} is ${expectedPointsFromLevels}. Correcting.`);
+                this.player.statPoints = expectedPointsFromLevels;
+            }
+            
+            // Also check if (StatPoints + Spent) > Expected. 
+            // This is harder without knowing exact starting stats.
+            // But checking bounds of `statPoints` is a good first safety net.
+            
+        } catch (e) {
+            console.error('Stat consistency check failed:', e);
+        }
+
         // --- Аудио ---
         this.audioManager = new AudioManager();
 

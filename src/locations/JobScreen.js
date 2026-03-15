@@ -71,17 +71,17 @@ export class JobScreen {
         // Set persistence state
         if (!this.player.viewingJobBoard) {
             this.player.viewingJobBoard = true;
-            //pTl)gg n vamanage (nwork
-if(hipayjobMgC{eck if we have an expired active job that needs claiming immediately upon viewing
-        // Cobsths.plyer.Mgr.();
-     }
+            this.player.save();
+        }
+
+        // Check if we have an expired active job that needs claiming immediately upon viewing
+        // Convert to Number to be safe
         const jobEnd = Number(this.player.jobEndTime) || 0;
         if (this.player.activeJob && jobEnd > 0 && Date.now() >= jobEnd) {
-            const result = this.player.completeActiveJob();
-            if (result) {
-                Modals.alert('Работа завершена', `Вы отлично поработали на должности "${result.title}" и получили ${result.credits} кр. и ${result.xp} XP!`);
+            // Trigger completion via manager (network)
+            if (this.player.jobMgr) {
+                this.player.jobMgr.completeActiveJob();
             }
-            //Всегда если результат является null (invalid job), completeActiveJob reset state, с теми, что непрерывно rendering
         }
 
         this.container.innerHTML = this._renderJobList();
@@ -221,9 +221,10 @@ if(hipayjobMgC{eck if we have an expired active job that needs claiming immediat
                 if (this.player.jobMgr) {
                     this.player.jobMgr.startJob(jobId, job.timeMs);
                     
-                    // Optimistic UI update (optional, but makes it snappy)
-                    // We can wait for server response in 'network:job_result' to act fully, 
-                    // but showing "working..." immediately is good UX.
+                    // Optimistic UI update
+                    if (this.player.activeJob) return; // Prevent overwriting
+
+                    e.target.disabled = true;
                     this.player.activeJob = jobId;
                     this.player.jobEndTime = Date.now() + job.timeMs;
                     this.player.jobNotified = false;
@@ -248,8 +249,7 @@ if(hipayjobMgC{eck if we have an expired active job that needs claiming immediat
         }
         this._bgClickListener = (e) => {
             //Если клик не попал ни на один интерактивный элемент — идем назад
-            const isInteractive = e.target.closest('.job-card, .job-action-btn, .cancel-job-btn-small, #btn-job-back, .job-header-card, .job-header-title, .job-header-desc'
-            );
+            const isInteractive = e.target.closest('.job-card, .job-action-btn, .cancel-job-btn-small, #btn-job-back, .job-header-card, .job-header-title, .job-header-desc');
             if (!isInteractive) {
                 this._goBack();
             }
