@@ -271,7 +271,27 @@ export class Game {
         }
 
         // Hydrate HP (must be after inventory/stats to ensure maxHp is correct)
-        if (profile.hp !== undefined) this.player.hp = profile.hp;
+        if (profile.hp !== undefined) {
+            this.player.hp = profile.hp;
+            
+            // Offline Regeneration
+            if (profile.lastOnline) {
+                const now = Date.now();
+                const elapsedSeconds = (now - profile.lastOnline) / 1000;
+                if (elapsedSeconds > 0 && this.player.hp < this.player.maxHp) {
+                    // Base regen: 1 HP per 5 seconds (0.2 HP/s) + bonuses
+                    // Simplified: Use PassiveRegenerationSystem logic if possible, or simple approximation.
+                    // Let's use simple approximation: 1 HP per 10s * (constitution/10)
+                    const regenRate = 0.1 * (this.player.constitution / 10);
+                    const healed = Math.floor(elapsedSeconds * regenRate);
+                    if (healed > 0) {
+                        const oldHp = this.player.hp;
+                        this.player.hp = Math.min(this.player.maxHp, this.player.hp + healed);
+                        console.log(`Offline regen: +${this.player.hp - oldHp} HP over ${Math.floor(elapsedSeconds)}s`);
+                    }
+                }
+            }
+        }
         
         // Quests (DatabaseService flattens quests_data into quests and dailyQuests)
         this.player.quests = profile.quests || {};
