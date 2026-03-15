@@ -1,13 +1,27 @@
+const express = require('express');
+const path = require('path');
+const { createServer } = require('http');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
-const wss = new WebSocket.Server({ port: 8081 });
+const app = express();
+const server = createServer(app);
+// Attach WebSocket server to the same HTTP server
+const wss = new WebSocket.Server({ server });
+
+const PORT = process.env.PORT || 8081;
+
+// Serve static files from the root directory (where index.html is)
+// Go up one level from 'server/' to project root
+const projectRoot = path.join(__dirname, '../');
+app.use(express.static(projectRoot));
+
+// Fallback to index.html for any other requests
+app.get('*', (req, res) => {
+    res.sendFile(path.join(projectRoot, 'index.html'));
+});
 
 const clients = new Map();
-
-wss.on('listening', () => {
-    console.log('Online server started on port 8081');
-});
 
 wss.on('connection', (ws) => {
     const id = uuidv4();
@@ -44,6 +58,12 @@ wss.on('connection', (ws) => {
 });
 
 function handleMessage(ws, message) {
+    // Check for direct message target
+    if (message.targetId) {
+        sendTo(message.targetId, message);
+        return;
+    }
+
     switch (message.type) {
         case 'chat':
             broadcast(message);
@@ -63,6 +83,16 @@ function handleMessage(ws, message) {
     }
 }
 
+function sendTo(targetId, message) {
+    const data = JSON.stringify(message);
+    for (const [client, metadata] of clients) {
+        if (metadata.id === targetId && client.readyState === WebSocket.OPEN) {
+            client.send(data);
+            return;
+        }
+    }
+}
+
 function broadcast(message, senderWs = null) {
     const data = JSON.stringify(message);
     for (const [client, metadata] of clients) {
@@ -71,3 +101,7 @@ function broadcast(message, senderWs = null) {
         }
     }
 }
+
+server.listen(PORT, () => {
+    console.log(`Online server started on port ${PORT}`);
+});

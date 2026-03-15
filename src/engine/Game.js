@@ -31,6 +31,7 @@ import { QuestManager } from "./System/QuestManager.js";
 import { StatsManager } from "./System/StatsManager.js";
 import { PersistenceManager } from "./System/PersistenceManager.js";
 import { ReputationManager } from "./System/ReputationManager.js";
+import { NetworkManager } from "./System/NetworkManager.js";
 
 export class Game {
     constructor() {
@@ -78,6 +79,7 @@ export class Game {
         this.serviceManager.register('stats', () => new StatsManager(this.player));
         this.serviceManager.register('persistence', () => new PersistenceManager(this.player));
         this.serviceManager.register('reputation', () => new ReputationManager(this.player));
+        this.serviceManager.register('network', () => new NetworkManager(this.player));
 
         // 4. Register System Services (GameLoop, Regeneration)
         this.serviceManager.register('gameLoop', (context) => new GameLoopManager(), 0);
@@ -97,10 +99,14 @@ export class Game {
             quest: this.serviceManager.get('quest'),
             stats: this.serviceManager.get('stats'),
             persistence: this.serviceManager.get('persistence'),
-            reputation: this.serviceManager.get('reputation')
+            reputation: this.serviceManager.get('reputation'),
+            network: this.serviceManager.get('network')
         });
 
         console.log('Managers injected into Player');
+
+        // Connect to server
+        this.player.networkMgr.connect();
 
         // 7. Get System Instances
         this.gameLoopManager = this.serviceManager.get('gameLoop');

@@ -30,7 +30,7 @@ export class Player extends Entity {
      this._money = 0;
      this.bankBalance = 0;
      this._datarii = 0;
-     this.locationId = "tatooine_spaceport";
+     this._locationId = "tatooine_spaceport";
 
      this.buffs = {}; 
 
@@ -43,6 +43,7 @@ export class Player extends Entity {
      this.statsMgr = null;
      this.persistenceMgr = null;
      this.reputationMgr = null;
+     this.networkMgr = null;
 
      this._baseConstitution = 10;
      this._baseStrength = 10;
@@ -74,6 +75,7 @@ export class Player extends Entity {
       this.statsMgr = managers.stats;
       this.persistenceMgr = managers.persistence;
       this.reputationMgr = managers.reputation;
+      this.networkMgr = managers.network;
 
       // Apply initial bonuses AFTER managers are available
       this._applyInitialBonuses();
@@ -131,6 +133,13 @@ export class Player extends Entity {
     const old = this._datarii;
     this._datarii = val;
     if (old !== this._datarii) this._emit('money-changed');
+  }
+
+  get locationId() { return this._locationId; }
+  set locationId(val) {
+    const old = this._locationId;
+    this._locationId = val;
+    if (old !== this._locationId) this._emit('location-changed');
   }
 
   get level() { return this._level; }

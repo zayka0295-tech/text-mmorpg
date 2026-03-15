@@ -27,6 +27,24 @@ export class PlayerModal {
                 this.hide();
             });
         }
+
+        document.addEventListener('network:profile_data', (e) => {
+            const { targetId, data } = e.detail;
+            // If the modal is waiting for this target, render it
+            if (this.waitingForTargetId === targetId) {
+                // Merge received data with basic info we might already have
+                const target = {
+                    id: targetId,
+                    name: data.name,
+                    // Use data from network, fallback to defaults
+                    ...data,
+                    isOnline: true // We just got a packet, so they are online
+                };
+                this.waitingForTargetId = null;
+                this._render(target);
+                document.getElementById('player-modal').classList.add('active');
+            }
+        });
     }
 
     _createDOM() {
@@ -39,9 +57,21 @@ export class PlayerModal {
         document.getElementById('game-container').appendChild(el);
     }
 
-    show(playerName) {
+    show(playerName, targetId = null) {
         //Не открываем свой собственный профиль
         if (playerName === this.playerSelf.name) return;
+
+        // Если это сетевой игрок (targetId передан), запрашиваем профиль
+        if (targetId && this.playerSelf.networkMgr) {
+            this.waitingForTargetId = targetId;
+            this.playerSelf.networkMgr.requestProfile(targetId);
+            
+            // Show loading state (optional, or just wait)
+            // For now, we just wait. If it's fast, it will pop up instantly.
+            // But if we want to show existing cache while waiting:
+            // ...
+            return; 
+        }
 
         //Ищем среди реальных игроков (с других вкладок или сохранений)
         let target = null;
@@ -378,7 +408,7 @@ export class PlayerModal {
         `;
 
         document.getElementById('pm-close-btn').addEventListener('click', () => this.hide());
-        document.getElementById('pm-attack-btn')?.addEventListener('click', () => this._doAttack(target.id));
+        document.getElementById('pm-attack-btn')?.addEventListener('click', () => this._doAttack(target));
         document.getElementById('pm-rob-btn')?.addEventListener('click', () => this._doRob(target.id));
 
         document.getElementById('pm-rep-up')?.addEventListener('click', () => this._voteReputation(target.id, 'up'));
@@ -438,10 +468,10 @@ export class PlayerModal {
         return pvpTarget;
     }
 
-    _doAttack(targetId) {
+    _doAttack(target) {
         PvPManager.doAttack(
             this.playerSelf,
-            targetId,
+            target,
             (errorMsg) => this._showResult(errorMsg, 'error'),
             () => this.hide()
         );

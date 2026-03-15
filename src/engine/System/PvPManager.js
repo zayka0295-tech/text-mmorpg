@@ -68,8 +68,18 @@ export class PvPManager {
         }
     }
 
-    static doAttack(playerSelf, targetId, onError, onHideModal) {
-        const target = this.resolveTarget(targetId);
+    static doAttack(playerSelf, targetOrId, onError, onHideModal) {
+        let target;
+        let targetId;
+
+        if (typeof targetOrId === 'object') {
+            target = targetOrId;
+            targetId = target.id;
+        } else {
+            targetId = targetOrId;
+            target = this.resolveTarget(targetId);
+        }
+
         if (!target) {
             onError('❌ Игрок не найден.');
             return;
@@ -287,9 +297,31 @@ export class PvPManager {
             }
         }
 
+        // --- Network PvP Result Handling ---
+        // If we have a network manager and the target is a real player (has UUID in ID or special flag)
+        // We assume IDs starting with 'real_' but containing a UUID-like string are network players.
+        // Actually, PlayerModal passes the full ID (UUID) for network players.
+        // Let's assume if playerSelf.networkMgr exists, we try to send.
+        
+        if (playerSelf.networkMgr) {
+             const resultData = {
+                 attacker: playerSelf.name,
+                 result: result === 'victory' ? 'defeat' : 'victory', // If I won, they lost
+                 stolen: result === 'victory' ? stolenAmount : 0,
+                 hpLost: damageTakenByDefender,
+                 message: result === 'victory' 
+                    ? `⚔️ На вас напал ${playerSelf.name} и победил! Вы потеряли ${damageTakenByDefender} HP.` 
+                    : `🛡️ Вы отбили нападение ${playerSelf.name}! Вы потеряли ${damageTakenByDefender} HP.`,
+                 ts: Date.now()
+             };
+             // Send to the target's ID (which is targetId passed from PlayerModal)
+             playerSelf.networkMgr.sendCombatResult(targetId, resultData);
+        }
+
         if (result === 'victory') {
             let actualStolen = stolenAmount;
-            if (targetId.startsWith('real_')) {
+            // Legacy LocalStorage Logic (for multi-tab testing without server)
+            if (targetId.startsWith('real_') && !playerSelf.networkMgr) {
                 try {
                     const pName = targetId.slice(5);
                     const raw = localStorage.getItem(`sw_player_save_${pName}`);
@@ -328,7 +360,8 @@ export class PvPManager {
             Notifications.show(`⚔️ PvP Победа! Украдено ${actualStolen.toLocaleString()} кр.${shiftMsg}`, 'success');
         } else if (result === 'defeat') {
             // Defender won
-            if (targetId.startsWith('real_')) {
+            // Legacy LocalStorage Logic
+            if (targetId.startsWith('real_') && !playerSelf.networkMgr) {
                 try {
                     const pName = targetId.slice(5);
                     const raw = localStorage.getItem(`sw_player_save_${pName}`);

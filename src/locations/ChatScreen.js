@@ -17,19 +17,9 @@ export class ChatScreen {
     }
 
     _init() {
-        //Реал-тайм обновления чата с вторых вкладок (однократно!)
-        window.addEventListener('storage', (e) => {
-            if (e.key !== CHAT_STORAGE_KEY) return;
-            try {
-                const newMessages = JSON.parse(e.newValue || '[]');
-                const prevCount = this.messages.length;
-                this.messages = newMessages;
-                if (newMessages.length > prevCount) {
-                    const toAdd = newMessages.slice(prevCount);
-                    toAdd.forEach(msg => this._appendMessageToDOM(msg));
-                    this._scrollToBottom();
-                }
-            } catch (err) { /* ignore */ }
+        // Слушаем сетевые сообщения
+        document.addEventListener('network:chat', (e) => {
+            this._addMessage(e.detail);
         });
 
         this.screenManager.subscribe('any', (screenId) => {
@@ -208,14 +198,16 @@ export class ChatScreen {
 
         input.value = '';
 
-        this._addMessage({
-            author: this.player.name,
-            avatarUrl: this.player.avatarUrl || this.player.avatar || null,
-            text,
-            isPlayer: true,
-            alignment: this.player.alignment || 0,
-            ts: Date.now()
-        });
+        if (this.player.networkMgr) {
+            this.player.networkMgr.send('chat', {
+                author: this.player.name,
+                avatarUrl: this.player.avatarUrl || this.player.avatar || null,
+                text,
+                isPlayer: true,
+                alignment: this.player.alignment || 0,
+                ts: Date.now()
+            });
+        }
     }
 
     _addMessage(msg) {
