@@ -39,7 +39,42 @@ export class MarketScreen {
             .forEach(item => { this._genItemMap[item.id] = item; });
     }
 
+    _initMarketEvents() {
+        if (this._marketEventsInitialized) return;
+        this._marketEventsInitialized = true;
+
+        document.addEventListener('network:market_result', (e) => {
+            const { ok, operation, error, profile, itemId, amount } = e.detail;
+            if (ok) {
+                // Update local player state from server profile
+                if (profile) {
+                    this.player.money = profile.money;
+                    if (profile.inventoryData) {
+                        this.player.inventoryMgr.load(profile.inventoryData.inventory, profile.inventoryData.equipment);
+                    }
+                    this.player._emit('money-changed');
+                    this.player._emit('inventory-changed'); // Trigger UI update
+                }
+
+                const item = ITEMS[itemId];
+                const itemName = item ? item.name : 'Предмет';
+                
+                if (operation === 'buy') {
+                    Modals.alert('Успех', `<span style="color:#27ae60; font-weight:bold; font-size:16px;">Куплено: ${itemName} (x${amount})</span>`);
+                } else {
+                    // Re-render tab to remove sold item
+                    const activeTab = this.container.querySelector('.m-tab.active');
+                    if (activeTab) this.renderTabContent(activeTab.getAttribute('data-tab'));
+                    Modals.alert('Успех', `<span style="color:#2980b9; font-weight:bold; font-size:16px;">Продано: ${itemName} x${amount}</span>`);
+                }
+            } else {
+                Modals.alert('Ошибка', error || 'Операция не удалась');
+            }
+        });
+    }
+
     render() {
+        this._initMarketEvents();
         const html = `<div class="market-tabs">
                 <button class="m-tab active" data-tab="consumable">💉 Аптечки</button>
                 <button class="m-tab" data-tab="weapon">🔫 Оружие</button>
@@ -282,9 +317,8 @@ export class MarketScreen {
                         Modals.alert('Успех', `<span style="color:#27ae60; font-weight:bold;">${(item?.name || '')}— куплено!</span>`);
                     }
                 );
-            });
-        });
-    }
+            });if (wrkMgr) {
+        });    neworkMgr.snd'market_buy', {  }
 
 
 
@@ -307,10 +341,9 @@ export class MarketScreen {
                          Modals.promptNumber(
                             'Купить ремкомплект',
                             `Сколько <b>${(item?.name || '')}</b> вы хотите купить?<br><span style="color:#aaa;font-size:12px;">Цена:${cost}кр. / шт.</span>`,
-                            1,
-                            'Купить',
-                            'Отмена',
-                            (amount) => {
+                            1,if (wrkMgr) {
+                            'Куп    ить',neworkMgr.snd'market_buy', {  }
+                            (amo
                                 if (amount <= 0) {
                                     Modals.alert('Ошибка', `Количество должно быть больше нуля!`);
                                     return;
@@ -324,11 +357,18 @@ export class MarketScreen {
                                 } else {
                                     Modals.alert('Ошибка', `Не хватает кредитов!`);
                                 }
-                            }
-                        );
-                        return;
-                    }
-
+                            }// Sp are secia, hndl via ship maket or add specific handler if needed
+                                // Fr ow, lt's assume market_buworksfr hips if invenory supports it, 
+                        );// bu ss re usuall uniqu poperty
+                                // Let' keep client logic for ssfornowor mgrate later?
+                                // User aske for MarketSys audit ShipMarketScreen ssearate.
+                        re//tThisuisrforn'consumable';or's' tpe in genal mrkt?
+                     }//Cnsumbejs hs 'ship_rpai_ki whichi tye CONSUMABLE.
+                                // If'hip' pe appears h,i's likly a msake rpeciald
+                                // Assuming stadrd buy:
+                               if(thi.lyer.etworkMgr {
+    .playernetworkMg.s('markt_uy', { imId, amou: 1 }
+                              }
                     Modals.promptNumber(
                         'Количество',
                         `Сколько <b>${(item?.name || '')}</b> вы хотите купить?<br><span style="color:#aaa;font-size:12px;">Цена:${cost}кр. / шт.</span>`,
@@ -342,10 +382,9 @@ export class MarketScreen {
                             }
                             const totalCost = cost * amount;
                             if (this.player.money >= totalCost) {
-                                this.player.money -= totalCost;
-                                this.player.addItem(itemId, amount);
-                                this.player.save();
-                                Modals.alert('Успех', `<span style="color:#27ae60; font-weight:bold; font-size:16px;">Куплено:${(item?.name || '')} (x${amount})</span>`);
+                                if (this.player.networkMgr) {Cost;
+                                    this.player.networkMgr.send('market_buy', { itemId, amount: a });
+                                }t})</span>`);
                             } else {
                                 Modals.alert('Ошибка', `Не хватает кредитов! Надо: <span style="color:#e74c3c">${totalCost}кр.</span>`);
                             }
@@ -430,13 +469,9 @@ export class MarketScreen {
                                 Modals.alert('Ошибка', `У вас нет столько предметов!`);
                                 return;
                             }
-                            const totalReturn = price * amount;
-                            if (this.player.removeItem(itemId, amount)) {
-                                this.player.money += totalReturn;
-                                this.player.save();
-                                const activeTab = this.container.querySelector('.m-tab.active');
-                                if (activeTab) this.renderTabContent(activeTab.getAttribute('data-tab'));
-                                Modals.alert('Успех', `<span style="color:#2980b9; font-weight:bold; font-size:16px;">Продано:${(item?.name || '')} x${amount} (+${totalReturn}кр.)</span>`);
+                            // const totalReturn = price * amount; // Server calculates price
+                            if (this.player.networkMgr) {
+                                this.player.networkMgr.send('market_sell', { itemId, amount });
                             }
                         }
                     );
@@ -447,12 +482,8 @@ export class MarketScreen {
                         'Продать',
                         'Отмена',
                         () => {
-                            if (this.player.removeItem(itemId, 1)) {
-                                this.player.money += price;
-                                this.player.save();
-                                const activeTab = this.container.querySelector('.m-tab.active');
-                                if (activeTab) this.renderTabContent(activeTab.getAttribute('data-tab'));
-                                Modals.alert('Успех', `<span style="color:#2980b9; font-weight:bold; font-size:16px;">Продано:${(item?.name || '')} (+${price}кр.)</span>`);
+                            if (this.player.networkMgr) {
+                                this.player.networkMgr.send('market_sell', { itemId, amount: 1 });
                             }
                         }
                     );

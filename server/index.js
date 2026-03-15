@@ -361,6 +361,106 @@ async function handleMessage(ws, message, metadata) {
             }
             break;
 
+        case 'market_buy':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'market_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const buyRes = await db.buyItem(metadata.dbId, message.itemId, message.amount || 1);
+                if (buyRes.error) {
+                    ws.send(JSON.stringify({ type: 'market_result', ok: false, operation: 'buy', error: buyRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'market_result', 
+                        ok: true, 
+                        operation: 'buy', 
+                        profile: buyRes.data,
+                        itemId: message.itemId,
+                        amount: message.amount || 1 
+                    }));
+                }
+            } catch (e) {
+                console.error('Market buy error:', e);
+                ws.send(JSON.stringify({ type: 'market_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
+        case 'market_sell':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'market_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const sellRes = await db.sellItem(metadata.dbId, message.itemId, message.amount || 1);
+                if (sellRes.error) {
+                    ws.send(JSON.stringify({ type: 'market_result', ok: false, operation: 'sell', error: sellRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'market_result', 
+                        ok: true, 
+                        operation: 'sell', 
+                        profile: sellRes.data,
+                        itemId: message.itemId,
+                        amount: message.amount || 1
+                    }));
+                }
+            } catch (e) {
+                console.error('Market sell error:', e);
+                ws.send(JSON.stringify({ type: 'market_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
+        case 'market_buy':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'market_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const buyRes = await db.buyItem(metadata.dbId, message.itemId, message.amount || 1);
+                if (buyRes.error) {
+                    ws.send(JSON.stringify({ type: 'market_result', ok: false, operation: 'buy', error: buyRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'market_result', 
+                        ok: true, 
+                        operation: 'buy', 
+                        profile: buyRes.data,
+                        itemId: message.itemId,
+                        amount: message.amount || 1 
+                    }));
+                }
+            } catch (e) {
+                console.error('Market buy error:', e);
+                ws.send(JSON.stringify({ type: 'market_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
+        case 'market_sell':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'market_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const sellRes = await db.sellItem(metadata.dbId, message.itemId, message.amount || 1);
+                if (sellRes.error) {
+                    ws.send(JSON.stringify({ type: 'market_result', ok: false, operation: 'sell', error: sellRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'market_result', 
+                        ok: true, 
+                        operation: 'sell', 
+                        profile: sellRes.data,
+                        itemId: message.itemId,
+                        amount: message.amount || 1
+                    }));
+                }
+            } catch (e) {
+                console.error('Market sell error:', e);
+                ws.send(JSON.stringify({ type: 'market_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
         case 'reputation_vote':
             if (message.targetId) {
                 const voterName = message.senderName || 'Anonymous';

@@ -376,37 +376,7 @@ class DatabaseService {
      * Load player profile by username
      * @param {string} username 
      * @returns {Promise<{data, error}>}
-     */
-    async loadProfile(username) {
-        if (!this.supabase) return { error: 'Database not configured' };
-
-        try {
-            const { data: dbProfile, error } = await this.supabase
-                .from('profiles')
-                .select('*')
-                .eq('username', username)
-                .single();
-
-            if (error) {
-                if (error.code !== 'PGRST116') {
-                    this._logDbError('loadProfile.select', error, { username });
-                }
-                return { data: null, error };
-            }
-
-            return { data: this._mapDbProfileToGameData(dbProfile), error: null };
-        } catch (error) {
-            this._logDbError('loadProfile.catch', error, { username });
-            return { data: null, error };
-        }
     }
-    
-    /**
-     * Load player profile by ID
-     * @param {string} id 
-     * @returns {Promise<{data, error}>}
-     */
-    async loadProfileById(id) {
         if (!this.supabase) return { error: 'Database not configured' };
 
         try {
@@ -425,6 +395,168 @@ class DatabaseService {
         } catch (error) {
             this._logDbError('loadProfileById.catch', error, { id });
             return { data: null, error };
+        }
+    }
+
+    /**
+     * Buy an item securely
+     * @param {string} playerId
+     * @param {string} itemId
+     * @param {number} amount
+     * @param {object} [customItemData] - Optional item data for generated items
+     * @returns {Promise<{data, error}>}
+     */
+    async buyItem(playerId, itemId, amount, customItemData = null) {
+        if (!this.supabase) return { error: 'Database not configured' };
+        if (amount <= 0) return { error: 'Invalid amount' };
+
+        let itemDef = null;
+        let cost = 0;
+
+        if (customItemData) {
+            itemDef = customItemData;
+            if (itemDef.id !== itemId) return { error: 'Item ID mismatch' };
+            cost = (itemDef.value || 0) * amount;
+        } else {
+            try {
+                const ITEMS = require('./data/items');
+                itemDef = ITEMS[itemId];
+            } catch (e) {
+                console.error('Failed to load ITEMS', e);
+            }
+            if (!itemDef) return { error: 'Item not found' };
+            cost = itemDef.value * amount;
+        }
+
+        if (cost < 0) return { error: 'Invalid cost' };
+
+        try {
+            const { data: profile, error: fetchError } = await this.supabase
+                .from('profiles')
+                .select('money, inventory_data')
+                .eq('id', playerId)
+                .single();
+
+            if (fetchError || !profile) return { error: 'Profile not found' };
+
+            if (profile.money < cost) {
+                return { error: 'Insufficient funds' };
+            }
+
+            const inventory = profile.inventory_data?.inventory || [];
+            const existingItemIndex = inventory.findIndex(i => i.id === itemId);
+            
+            if (existingItemIndex >= 0 && !customItemData) {
+                inventory[existingItemIndex].amount = (inventory[existingItemIndex].amount || 1) + amount;
+            } else {
+                if (customItemData) {
+                    inventory.push({ id: itemId, amount: amount, itemData: customItemData });
+                } else {
+                    inventory.push({ id: itemId, amount: amount });
+                }
+            }
+
+            const newMoney = profile.money - cost;
+
+            const { data: updatedProfile, error: updateError } = await this.supabase
+                .from('profiles')
+                .update({ 
+                    money: newMoney,
+                    inventory_data: { ...profile.inventory_data, inventory: inventory },
+                    updated_at: new Date()
+                })
+                .eq('id', playerId)
+                .select()
+                .single();
+
+            if (updateError) return { error: updateError.message };
+
+            return { data: this._mapDbProfileToGameData(updatedProfile), error: null };
+        } catch (error) {
+            this._logDbError('buyItem.catch', error, { playerId, itemId });
+            return { error: 'Transaction failed' };
+        }
+    }
+
+    /**
+     * Sell an item securely
+     * @param {string} playerId
+     * @param {string} itemId
+     * @param {number} amount
+     * @returns {Promise<{data, error}>}
+     */
+    async sellItem(playerId, itemId, amount) {
+        if (!this.supabase) return { error: 'Database not configured' };
+        if (amount <= 0) return { error: 'Invalid amount' };
+
+        let itemDef = null;
+        try {
+            const ITEMS = require('./data/items');
+            itemDef = ITEMS[itemId];
+        } catch (e) {
+             // If item is not in static list, check player inventory later? 
+             // We can't easily validate price of generated items without trust or storing original value in DB.
+             // For now, assume generated items have value stored in inventory or rely on server-side Items if possible.
+             // But ITEMS only has static.
+        }
+        
+        // We need to fetch profile first to verify ownership AND get item details if it's dynamic
+        try {
+            const { data: profile, error: fetchError } = await this.supabase
+                .from('profiles')
+                .select('money, inventory_data')
+                .eq('id', playerId)
+                .single();
+
+            if (fetchError || !profile) return { error: 'Profile not found' };
+
+            let inventory = profile.inventory_data?.inventory || [];
+            const itemIndex = inventory.findIndex(i => i.id === itemId);
+
+            if (itemIndex === -1 || (inventory[itemIndex].amount || 1) < amount) {
+                return { error: 'Not enough items' };
+            }
+
+            const invItem = inventory[itemIndex];
+            // If itemDef missing (dynamic item?), try to get from inventory data
+            if (!itemDef && invItem.itemData) {
+                itemDef = invItem.itemData;
+            }
+
+            if (!itemDef) {
+                 // Fallback: If we can't find definition, maybe it's an old item? 
+                 // We can't determine price.
+                 return { error: 'Item definition not found for price calculation' };
+            }
+
+            const sellPrice = Math.floor((itemDef.value || 0) * 0.5) * amount;
+
+            // Deduct item
+            if (inventory[itemIndex].amount > amount) {
+                inventory[itemIndex].amount -= amount;
+            } else {
+                inventory.splice(itemIndex, 1);
+            }
+
+            const newMoney = profile.money + sellPrice;
+
+            const { data: updatedProfile, error: updateError } = await this.supabase
+                .from('profiles')
+                .update({
+                    money: newMoney,
+                    inventory_data: { ...profile.inventory_data, inventory: inventory },
+                    updated_at: new Date()
+                })
+                .eq('id', playerId)
+                .select()
+                .single();
+
+            if (updateError) return { error: updateError.message };
+
+            return { data: this._mapDbProfileToGameData(updatedProfile), error: null };
+        } catch (error) {
+            this._logDbError('sellItem.catch', error, { playerId, itemId });
+            return { error: 'Transaction failed' };
         }
     }
 
