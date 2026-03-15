@@ -195,7 +195,8 @@ async function handleMessage(ws, message, metadata) {
                 console.log(`Saving profile for ${metadata.name}:`, { 
                     money: message.data.money, 
                     level: message.data.level, 
-                    job: message.data.activeJob 
+                    job: message.data.activeJob,
+                    avatarLength: message.data.avatar ? message.data.avatar.length : 0 
                 });
 
                 await db.saveProfile(message.data);
@@ -251,8 +252,38 @@ async function handleMessage(ws, message, metadata) {
 
         case 'reputation_vote':
             if (message.targetId) {
-                // Forward vote to target client to process
-                sendTo(message.targetId, message);
+                // Use DatabaseService to handle vote atomically (works for offline too)
+                // message.senderName comes from metadata in handleMessage wrapper logic? 
+                // We need to ensure we have the voter's name.
+                // In handleMessage: if (metadata.name) message.senderName = metadata.name;
+                
+                const voterName = message.senderName || 'Anonymous';
+                
+                try {
+                    const result = await db.voteReputation(message.targetId, voterName, message.voteType);
+                    
+                    if (result.error) {
+                        console.error('Reputation vote error:', result.error);
+                    } else {
+                        // Notify target if online
+                        const { reputation, voteType } = result.data;
+                        
+                        // Find target connection
+                        // We need to construct a message that NetworkManager expects for 'reputation_update'
+                        // NetworkManager expects: { newReputation, voteType, voterName }
+                        
+                        const updateMsg = {
+                            type: 'reputation_update',
+                            newReputation: reputation,
+                            voteType: voteType,
+                            voterName: voterName
+                        };
+                        
+                        sendTo(message.targetId, updateMsg);
+                    }
+                } catch (e) {
+                    console.error('Error processing reputation vote:', e);
+                }
             }
             break;
 

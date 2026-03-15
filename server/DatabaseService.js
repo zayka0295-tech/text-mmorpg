@@ -126,6 +126,60 @@ class DatabaseService {
     }
 
     /**
+     * Handle reputation voting
+     * @param {string} targetId
+     * @param {string} voterName
+     * @param {string} voteType 'up' or 'down'
+     * @returns {Promise<{data, error}>}
+     */
+    async voteReputation(targetId, voterName, voteType) {
+        if (!this.supabase) return { error: 'Database not configured' };
+
+        // 1. Fetch target profile
+        const { data: profile, error: fetchError } = await this.supabase
+            .from('profiles')
+            .select('id, reputation, reputation_votes')
+            .eq('id', targetId)
+            .single();
+
+        if (fetchError || !profile) return { error: 'Target not found' };
+
+        let votes = profile.reputation_votes || {};
+        let reputation = profile.reputation || 0;
+        const prevVote = votes[voterName];
+
+        // Logic matches ReputationManager.js
+        if (prevVote === voteType) {
+            // Remove vote
+            delete votes[voterName];
+            reputation += (voteType === 'up' ? -1 : 1);
+        } else {
+            // Change or new vote
+            if (prevVote) {
+                reputation += (prevVote === 'up' ? -1 : 1); // Undo previous
+            }
+            votes[voterName] = voteType;
+            reputation += (voteType === 'up' ? 1 : -1);
+        }
+
+        // 2. Update DB
+        const { data: updated, error: updateError } = await this.supabase
+            .from('profiles')
+            .update({ 
+                reputation: reputation, 
+                reputation_votes: votes,
+                updated_at: new Date()
+            })
+            .eq('id', targetId)
+            .select()
+            .single();
+
+        if (updateError) return { error: updateError.message };
+
+        return { data: { reputation, voteType }, error: null };
+    }
+
+    /**
      * Save or update player profile
      * @param {Object} playerData - Data object similar to what PersistenceManager saves
      * @returns {Promise<{data, error}>}
