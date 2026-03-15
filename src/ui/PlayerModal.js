@@ -92,6 +92,13 @@ export class PlayerModal {
 
         document.addEventListener('network:reputation_vote_result', (e) => {
             const { ok, targetId, voteType } = e.detail;
+            
+            // Reset voting state if it was us who voted
+            if (this.isVoting) {
+                this.isVoting = false;
+                this._updateVoteButtonsState(false);
+            }
+
             if (!ok || !this.currentTarget || this.currentTarget.id !== targetId) return;
 
             const nextVotes = { ...(this.currentTarget.reputationVotes || {}) };
@@ -539,18 +546,46 @@ export class PlayerModal {
     }
 
     _voteReputation(targetId, voteType) {
+        if (this.isVoting) return;
+        this.isVoting = true;
+        this._updateVoteButtonsState(true);
+
         PvPManager.voteReputation(
             this.playerSelf,
             targetId,
             voteType,
             (newTargetId) => {
-                const target = this.currentTarget?.id === newTargetId
-                    ? this.currentTarget
-                    : this._resolveTarget(newTargetId, this.currentTarget?.name);
-                if (target) this._render(target);
+                // Success is handled by network event, but we can ensure cleanup here too if needed
             },
-            (errorMsg) => this._showResult(errorMsg, 'error')
+            (errorMsg) => {
+                this.isVoting = false;
+                this._updateVoteButtonsState(false);
+                this._showResult(errorMsg, 'error');
+            }
         );
+        
+        // Safety timeout
+        setTimeout(() => {
+            if (this.isVoting) {
+                this.isVoting = false;
+                this._updateVoteButtonsState(false);
+            }
+        }, 5000);
+    }
+
+    _updateVoteButtonsState(disabled) {
+        const upBtn = document.getElementById('pm-rep-up');
+        const downBtn = document.getElementById('pm-rep-down');
+        if (upBtn) {
+            upBtn.disabled = disabled;
+            upBtn.style.opacity = disabled ? '0.5' : '1';
+            upBtn.style.cursor = disabled ? 'not-allowed' : 'pointer';
+        }
+        if (downBtn) {
+            downBtn.disabled = disabled;
+            downBtn.style.opacity = disabled ? '0.5' : '1';
+            downBtn.style.cursor = disabled ? 'not-allowed' : 'pointer';
+        }
     }
 
 
