@@ -43,9 +43,33 @@ export class Game {
 
         this._initAuthListeners();
 
-        // Check for URL params only for dev/debug bypass if needed, 
-        // but for now we enforce AuthScreen for network play.
-        // Actually, let's keep AuthScreen as primary entry.
+        // Check for saved session token
+        this.savedToken = localStorage.getItem('sw_session_token');
+        this.isAutoLoggingIn = !!this.savedToken;
+
+        if (this.isAutoLoggingIn) {
+            console.log('Found saved token, waiting for connection...');
+            // Optional: Show a "Connecting..." overlay here
+        } else {
+            this.showAuthScreen();
+        }
+
+        // Listen for connection open to attempt auto-login
+        document.addEventListener('network:connected', () => {
+            if (this.isAutoLoggingIn && this.savedToken) {
+                console.log('Connected! Sending token...');
+                this.networkManager.loginWithToken(this.savedToken);
+            }
+        });
+    }
+
+    showAuthScreen() {
+        if (this.authScreen) {
+            document.getElementById('auth-screen')?.classList.remove('hidden');
+            document.getElementById('auth-screen')?.classList.add('active');
+            return;
+        }
+        
         this.authScreen = new AuthScreen((username, password, race, className, type) => {
             if (type === 'login') {
                 this.networkManager.login(username, password);
@@ -57,16 +81,38 @@ export class Game {
 
     _initAuthListeners() {
         document.addEventListener('network:auth_success', (e) => {
-            const profile = e.detail.profile;
+            const { profile, token } = e.detail;
             console.log('Auth success, profile:', profile);
+            
+            if (token) {
+                localStorage.setItem('sw_session_token', token);
+            }
+
             Notifications.show(`Добро пожаловать, ${profile.name}!`, 'success');
-            this.authScreen.hide();
+            
+            if (this.authScreen) this.authScreen.hide();
+            // Also ensure auth screen DOM is hidden if we bypassed showAuthScreen
+            const authEl = document.getElementById('auth-screen');
+            if (authEl) {
+                authEl.classList.remove('active');
+                authEl.classList.add('hidden');
+            }
+
             this.startGame(profile);
         });
 
         document.addEventListener('network:auth_error', (e) => {
             console.error('Auth error:', e.detail.message);
-            Notifications.show(e.detail.message || 'Ошибка авторизации', 'error');
+            
+            if (this.isAutoLoggingIn) {
+                console.log('Auto-login failed, falling back to manual login');
+                this.isAutoLoggingIn = false;
+                localStorage.removeItem('sw_session_token'); // Clear bad token
+                this.showAuthScreen();
+                Notifications.show('Сессия истекла. Пожалуйста, войдите снова.', 'warning');
+            } else {
+                Notifications.show(e.detail.message || 'Ошибка авторизации', 'error');
+            }
         });
     }
 

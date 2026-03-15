@@ -87,7 +87,8 @@ async function handleMessage(ws, message, metadata) {
                     metadata.dbId = profile.id; // DB UUID
                     clients.set(ws, metadata);
                     
-                    ws.send(JSON.stringify({ type: 'login_success', profile }));
+                    // Send session token back to client
+                    ws.send(JSON.stringify({ type: 'login_success', profile, token: profile.sessionToken }));
                     
                     // Broadcast join
                     broadcast({ type: 'player_joined', id: metadata.id, name: profile.name }, ws);
@@ -106,6 +107,39 @@ async function handleMessage(ws, message, metadata) {
                 }
             } catch (e) {
                 console.error("Login failed:", e);
+                ws.send(JSON.stringify({ type: 'login_error', message: "Internal server error" }));
+            }
+            break;
+
+        case 'login_token':
+            console.log(`Token login attempt`);
+            try {
+                const tokenResult = await db.loginWithToken(message.token);
+                if (tokenResult.error) {
+                    ws.send(JSON.stringify({ type: 'login_error', message: "Session expired" }));
+                } else {
+                    const profile = tokenResult.data;
+                    metadata.name = profile.name;
+                    metadata.isAnonymous = false;
+                    metadata.dbId = profile.id;
+                    clients.set(ws, metadata);
+                    
+                    ws.send(JSON.stringify({ type: 'login_success', profile, token: profile.sessionToken }));
+                    broadcast({ type: 'player_joined', id: metadata.id, name: profile.name }, ws);
+
+                    for (const [otherWs, otherMeta] of clients) {
+                        if (otherWs !== ws && otherMeta.name && !otherMeta.isAnonymous) {
+                            ws.send(JSON.stringify({
+                                type: 'player_joined',
+                                id: otherMeta.id,
+                                name: otherMeta.name,
+                                locationId: otherMeta.locationId || 'tatooine_spaceport'
+                            }));
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Token login failed:", e);
                 ws.send(JSON.stringify({ type: 'login_error', message: "Internal server error" }));
             }
             break;

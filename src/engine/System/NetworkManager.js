@@ -29,6 +29,7 @@ export class NetworkManager {
         this.socket.onopen = () => {
             console.log('Connected to game server!');
             this.isConnected = true;
+            document.dispatchEvent(new CustomEvent('network:connected'));
             if (this.player) {
                 this._sendAuth();
                 // Send initial location
@@ -74,6 +75,10 @@ export class NetworkManager {
 
     login(username, password) {
         this.send('login', { username, password });
+    }
+
+    loginWithToken(token) {
+        this.send('login_token', { token });
     }
 
     register(username, password) {

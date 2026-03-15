@@ -1,6 +1,7 @@
 require('dotenv').config({ path: '../.env' });
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 
 class DatabaseService {
     constructor() {
@@ -85,7 +86,43 @@ class DatabaseService {
             return { error: 'Invalid password' };
         }
 
-        return { data: this._mapDbProfileToGameData(dbProfile), error: null };
+        // Generate Session Token
+        const sessionToken = uuidv4();
+        
+        // Update profile with session token
+        await this.supabase
+            .from('profiles')
+            .update({ session_token: sessionToken, updated_at: new Date() })
+            .eq('id', dbProfile.id);
+
+        const gameData = this._mapDbProfileToGameData(dbProfile);
+        gameData.sessionToken = sessionToken; // Pass to client
+
+        return { data: gameData, error: null };
+    }
+
+    /**
+     * Login with Session Token
+     * @param {string} token
+     * @returns {Promise<{data, error}>}
+     */
+    async loginWithToken(token) {
+        if (!this.supabase) return { error: 'Database not configured' };
+
+        const { data: dbProfile, error } = await this.supabase
+            .from('profiles')
+            .select('*')
+            .eq('session_token', token)
+            .single();
+
+        if (error || !dbProfile) {
+            return { error: 'Invalid or expired session' };
+        }
+
+        const gameData = this._mapDbProfileToGameData(dbProfile);
+        gameData.sessionToken = token; // Return it back just in case
+
+        return { data: gameData, error: null };
     }
 
     /**
