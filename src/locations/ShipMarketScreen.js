@@ -15,6 +15,12 @@ export class ShipMarketScreen {
         ];
     }
 
+    _getValidShip() {
+        return this.player.ship && this.player.ship.id && ITEMS[this.player.ship.id]
+            ? this.player.ship
+            : null;
+    }
+
     openShipMarket(locationId) {
         this.currentLocationId = locationId;
         this.screenManager.showScreen('ship-market-screen');
@@ -22,6 +28,7 @@ export class ShipMarketScreen {
     }
 
     render() {
+        const validShip = this._getValidShip();
         let html = `<div class="market-tabs">
                 <div style="display:flex; align-items:center; gap:8px; color:#70c4c4; font-weight:700; font-size:13px; letter-spacing:1px; padding: 0 4px;">
                     <ion-icon name="rocket-outline"></ion-icon> КОРАБЛЫ
@@ -31,12 +38,12 @@ export class ShipMarketScreen {
                 <div class="market-cards-grid">`;
 
         //Отображение текущего корабля (Продажа)
-        if (this.player.ship) {
-            const currentShip = ITEMS[this.player.ship.id];
+        if (validShip) {
+            const currentShip = ITEMS[validShip.id];
             if (currentShip) {
                 const sellPrice = Math.floor(currentShip.value * 0.5);
                 const maxHp = currentShip.stats?.maxHp || 100;
-                const hpPercent = Math.round((this.player.ship.hp / maxHp) * 100);
+                const hpPercent = Math.round((validShip.hp / maxHp) * 100);
                 const hpColor = hpPercent > 60 ? '#2ecc71' : hpPercent > 30 ? '#f39c12' : '#e74c3c';
 
                 html += `
@@ -46,7 +53,7 @@ export class ShipMarketScreen {
                             <div class="market-card-name" style="color:#1abc9c;">${(currentShip?.name || '')} <span style="font-size:10px;color:#aaa;">ВАШ КОРАБЛЬ</span></div>
                             <div class="market-card-desc">${currentShip.description}</div>
                             <div style="margin-top:5px;">
-                                <div style="font-size:10px;color:#aaa;margin-bottom:3px;">Корпус: <span style="color:${hpColor};font-weight:700;">${this.player.ship.hp} / ${maxHp} (${hpPercent}%)</span></div>
+                                <div style="font-size:10px;color:#aaa;margin-bottom:3px;">Корпус: <span style="color:${hpColor};font-weight:700;">${validShip.hp} / ${maxHp} (${hpPercent}%)</span></div>
                                 <div style="height:4px;background:#333;border-radius:2px;overflow:hidden;">
                                     <div style="height:100%;width:${hpPercent}%;background:${hpColor};border-radius:2px;transition:width 0.3s;"></div>
                                 </div>
@@ -66,8 +73,8 @@ export class ShipMarketScreen {
             const ship = ITEMS[shipId];
             if (!ship) return;
 
-            const isOwned = this.player.ship && this.player.ship.id === shipId;
-            const canBuy = !this.player.ship && this.player.money >= ship.value;
+            const isOwned = validShip && validShip.id === shipId;
+            const canBuy = !validShip && this.player.money >= ship.value;
             const rarity = ship.rarity || 'rare';
 
             const statsHtml = (() => {
@@ -102,7 +109,7 @@ export class ShipMarketScreen {
                         ${isOwned
                             ?`<button class="btn-buy btn-buy-disabled" disabled>В СОБСТВЕННОСТИ</button>`
                             : `<button class="btn-buy-ship ${canBuy ? '' : 'btn-buy-disabled'}" data-item="${ship.id}" data-cost="${ship.value}" ${canBuy ? '' : 'disabled'}>
-                                    ${this.player.ship ? 'СНАЧАЛА ПРОДАЙТЕ' : canBuy ? 'КУПИТ' : 'МАЛО КРЕДИТОВ'}
+                                    ${validShip ? 'СНАЧАЛА ПРОДАЙТЕ' : canBuy ? 'КУПИТ' : 'МАЛО КРЕДИТОВ'}
                                </button>`
                         }
                     </div>

@@ -1,4 +1,5 @@
 import { PLANETS } from '../../engine/Data/planets.js';
+import { ITEMS } from '../../engine/Data/items.js';
 import { Modals } from '../Modals.js';
 
 export class SpaceportModal {
@@ -6,6 +7,12 @@ export class SpaceportModal {
         this.container = container;
         this.player = player;
         this.renderCallback = renderCallback; //Функция для обновления MapScreen после перелета
+    }
+
+    _getValidShip() {
+        return this.player.ship && this.player.ship.id && ITEMS[this.player.ship.id]
+            ? this.player.ship
+            : null;
     }
 
     renderSpaceportModal(currentPlanetId) {
@@ -20,12 +27,13 @@ export class SpaceportModal {
         Object.values(PLANETS).forEach(planet => {
             const isCurrent = planet.id === currentPlanetId;
             const bgImage = `/public/assets/locations/planet_${planet.id}.png`;
+            const validShip = this._getValidShip();
 
             let costText = `${planet.flightCost}кр.`;
             let actualCost = planet.flightCost;
             
             //Если есть корабль - бесплатно
-            if (this.player.ship) {
+            if (validShip) {
                 costText = `<span style="text-decoration: line-through; color: #aaa;">${planet.flightCost}</span> <span style="color: #27ae60;">0 кр.</span>`;
                 actualCost = 0;
             }
@@ -109,11 +117,12 @@ export class SpaceportModal {
                 const planetId = target.getAttribute('data-planet');
                 const cost = parseInt(target.getAttribute('data-cost'));
                 const planetData = PLANETS[planetId];
+                const validShip = this._getValidShip();
 
                 if (!planetData) return;
 
                 //Если есть корабль, проверяем его состояние
-                if (this.player.ship && this.player.ship.hp <= 0) {
+                if (validShip && validShip.hp <= 0) {
                      Modals.alert('Критическая поломка', 'Ваш корабль уничтожен/сломан! Отремонтируйте его на рынке (Ремкомплект), чтобы летать.');
                      return;
                 }
@@ -146,9 +155,8 @@ export class SpaceportModal {
 
                             //ШАНС НАПАДАНИЯ (Только если есть корабль и мы летим на нем)
                             let attackMsg = '';
-                            if (this.player.ship) {
+                            if (validShip) {
                                 if (Math.random() < 0.10) { //10% шанс
-                                     const shipData = PLANETS[planetId]; // This is wrong, should get item data
                                      import('../../engine/Data/items.js').then(itemsModule => {
                                          const shipItem = itemsModule.ITEMS[this.player.ship.id];
                                          const maxHp = shipItem?.stats?.maxHp || 100;

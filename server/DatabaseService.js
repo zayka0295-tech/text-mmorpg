@@ -428,6 +428,10 @@ class DatabaseService {
     _mapDbProfileToGameData(dbProfile) {
         if (!dbProfile) return null;
 
+        const shipData = dbProfile.ship_data && typeof dbProfile.ship_data === 'object' && dbProfile.ship_data.id
+            ? dbProfile.ship_data
+            : null;
+
         // Map back to format expected by PersistenceManager.load() logic
         return {
             id: dbProfile.id,
@@ -467,7 +471,7 @@ class DatabaseService {
             activeForceSkill: dbProfile.force_data?.activeSkill,
             
             reputationVotes: dbProfile.reputation_votes,
-            ship: dbProfile.ship_data,
+            ship: shipData,
             avatar: dbProfile.appearance?.avatar,
             buffs: dbProfile.buffs,
             

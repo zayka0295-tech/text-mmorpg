@@ -233,6 +233,19 @@ export class NetworkManager {
                         const change = voteType === 'up' ? 1 : -1;
                         this.player.reputation = (this.player.reputation || 0) + change;
                     }
+
+                    // Update local vote history to prevent overwrite on save
+                    if (senderName && voteType) {
+                        if (!this.player.reputationVotes) this.player.reputationVotes = {};
+                        
+                        const currentVote = this.player.reputationVotes[senderName];
+                        if (currentVote === voteType) {
+                             delete this.player.reputationVotes[senderName];
+                        } else {
+                             this.player.reputationVotes[senderName] = voteType;
+                        }
+                    }
+
                     // Save the change
                     this.saveProfile(this.player.getFullStats());
                     

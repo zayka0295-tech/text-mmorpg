@@ -2,6 +2,7 @@ import { Player } from './Entities/Player.js';
 import { SaveManager } from './System/SaveManager.js';
 import { AudioManager } from './System/AudioManager.js';
 import { QuestGenerator } from './System/QuestGenerator.js';
+import { ITEMS } from './Data/items.js';
 import { ScreenManager } from '../ui/ScreenManager.js';
 import { TopBar } from '../ui/TopBar.js';
 import { BottomNav } from '../ui/BottomNav.js';
@@ -157,13 +158,11 @@ export class Game {
         // Or we can just manually set everything on player. 
         // Let's manually hydrate essential data here or modify PersistenceManager.
         // For MVP, manual hydration of key props:
-        if (profile.stats) {
-             this.player.baseConstitution = profile.stats.baseConstitution || 10;
-             this.player.baseStrength = profile.stats.baseStrength || 10;
-             this.player.baseAgility = profile.stats.baseAgility || 10;
-             this.player.baseIntellect = profile.stats.baseIntellect || 10;
-             this.player.statPoints = profile.stats.statPoints || 0;
-        }
+        this.player.baseConstitution = profile.baseConstitution ?? this.player.baseConstitution;
+        this.player.baseStrength = profile.baseStrength ?? this.player.baseStrength;
+        this.player.baseAgility = profile.baseAgility ?? this.player.baseAgility;
+        this.player.baseIntellect = profile.baseIntellect ?? this.player.baseIntellect;
+        this.player.statPoints = profile.statPoints ?? this.player.statPoints;
         if (profile.locationId) this.player.locationId = profile.locationId;
         
         // We still register PersistenceManager but maybe we don't call load() from LS?
@@ -276,7 +275,11 @@ export class Game {
         this.player.reputation = profile.reputation || 0;
         if (profile.reputationVotes) this.player.reputationVotes = profile.reputationVotes;
         
-        if (profile.ship) this.player.ship = profile.ship;
+        if (profile.ship && profile.ship.id && ITEMS[profile.ship.id]) {
+            this.player.ship = profile.ship;
+        } else {
+            this.player.ship = null;
+        }
         
         // Force Data (DatabaseService flattens force_data)
         this.player.forcePoints = profile.forcePoints || 0;

@@ -319,6 +319,13 @@ export class Player extends Entity {
   unequipItem(slot) { return this.inventoryMgr ? this.inventoryMgr.unequipItem(slot) : false; }
 
   getFullStats() {
+    const inventoryData = this.inventoryMgr
+      ? {
+          inventory: this.inventoryMgr.items,
+          equipment: this.inventoryMgr.equipment
+        }
+      : undefined;
+
     return {
       id: this.id, // Critical for DB upsert
       name: this.name,
@@ -333,6 +340,11 @@ export class Player extends Entity {
       strength: this.strength,
       agility: this.agility,
       intellect: this.intellect,
+      baseConstitution: this.baseConstitution,
+      baseStrength: this.baseStrength,
+      baseAgility: this.baseAgility,
+      baseIntellect: this.baseIntellect,
+      statPoints: this.statPoints,
       className: this.className,
       race: this.race,
       title: this.title,
@@ -341,10 +353,14 @@ export class Player extends Entity {
       nextLevelXp: this.nextLevelXp,
       money: this.money,
       bankBalance: this.bankBalance,
+      datarii: this.datarii,
       alignment: this.alignment,
       reputation: this.reputation,
       reputationVotes: this.reputationVotes,
       locationId: this.locationId,
+      inventoryData: inventoryData,
+      quests: this.quests,
+      dailyQuests: this.dailyQuests,
       ship: this.ship,
       activeJob: this.activeJob,
       jobEndTime: this.jobEndTime,
