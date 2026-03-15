@@ -11,7 +11,9 @@ export class AuthScreen {
         this.registerForm = document.getElementById('register-form');
         
         this.loginUsername = document.getElementById('login-username');
+        this.loginPassword = document.getElementById('login-password');
         this.registerUsername = document.getElementById('register-username');
+        this.registerPassword = document.getElementById('register-password');
         
         this.btnLogin = document.getElementById('btn-login');
         this.btnRegister = document.getElementById('btn-register');
@@ -50,8 +52,8 @@ export class AuthScreen {
         
         // Safety check: verify all critical elements exist
         const criticalElements = [
-            'container', 'loginForm', 'registerForm', 'loginUsername', 
-            'registerUsername', 'btnLogin', 'btnRegister', 'toRegisterLink', 'toLoginLink'
+            'container', 'loginForm', 'registerForm', 'loginUsername', 'loginPassword',
+            'registerUsername', 'registerPassword', 'btnLogin', 'btnRegister', 'toRegisterLink', 'toLoginLink'
         ];
         const missing = criticalElements.filter(key => !this[key]);
         if (missing.length > 0) {
@@ -317,31 +319,35 @@ export class AuthScreen {
 
     _handleLogin() {
         const username = this.loginUsername.value.trim();
+        const password = this.loginPassword.value.trim();
+
         if (!username) {
             Notifications.show('Пожалуйста, введите имя!', 'error');
             return;
         }
-
-        const users = this._getUsers();
-        const user = users.find(u => (typeof u === 'string' ? u : u.name) === username);
-        
-        if (user) {
-            Notifications.show(`С возвращением, ${username}!`, 'success');
-            const race = typeof user === 'object' ? user.race : null;
-            const className = typeof user === 'object' ? user.className : 'Контрабандист';
-            this.onAuthSuccess(username, race, className);
-        } else {
-            Notifications.show('Персонаж не найден. Попробуйте зарегистрироваться.', 'error');
+        if (!password) {
+            Notifications.show('Пожалуйста, введите пароль!', 'error');
+            return;
         }
+
+        // Pass to Game.js for network auth
+        this.onAuthSuccess(username, password, null, null, 'login');
     }
 
     _handleRegister() {
         console.log('--- _handleRegister START ---');
         const username = this.registerUsername.value.trim();
+        const password = this.registerPassword.value.trim();
+        
         console.log('Username:', username);
         if (!username) {
             console.warn('Registration failed: Username empty');
             Notifications.show('Пожалуйста, введите имя!', 'error');
+            return;
+        }
+        if (!password) {
+            console.warn('Registration failed: Password empty');
+            Notifications.show('Пожалуйста, введите пароль!', 'error');
             return;
         }
 
@@ -350,14 +356,8 @@ export class AuthScreen {
             Notifications.show('Имя должно быть не менее 3 символов!', 'error');
             return;
         }
-
-        const users = this._getUsers();
-        console.log('Current users list:', users);
-        const exists = users.some(u => (typeof u === 'string' ? u : u.name) === username);
-        
-        if (exists) {
-            console.warn('Registration failed: Username already exists');
-            Notifications.show('Это имя уже занято!', 'error');
+        if (password.length < 4) {
+            Notifications.show('Пароль слишком короткий (мин. 4 символа)!', 'error');
             return;
         }
 
@@ -365,18 +365,8 @@ export class AuthScreen {
         const selectedClass = this.classes[this.currentClassIndex];
         console.log('Selected Race:', selectedRace, 'Selected Class:', selectedClass);
 
-        const newUser = {
-            name: username,
-            race: selectedRace,
-            className: selectedClass
-        };
-        users.push(newUser);
-        this._saveUsers(users);
-        console.log('New user saved to localStorage');
-        
-        Notifications.show(`Герой ${username} создан!`, 'success');
-        console.log('Calling onAuthSuccess callback');
-        this.onAuthSuccess(username, selectedRace, selectedClass);
+        // Pass to Game.js for network auth
+        this.onAuthSuccess(username, password, selectedRace, selectedClass, 'register');
         console.log('--- _handleRegister END ---');
     }
 

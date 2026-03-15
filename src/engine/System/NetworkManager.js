@@ -1,6 +1,6 @@
 export class NetworkManager {
     constructor(player) {
-        this.player = player;
+        this.player = player || null;
         this.socket = null;
         this.isConnected = false;
         
@@ -29,14 +29,16 @@ export class NetworkManager {
         this.socket.onopen = () => {
             console.log('Connected to game server!');
             this.isConnected = true;
-            this._sendAuth();
-            // Send initial location
-            this.sendMove(this.player.locationId);
+            if (this.player) {
+                this._sendAuth();
+                // Send initial location
+                this.sendMove(this.player.locationId);
+            }
         };
 
         // Listen for local player movement
         document.addEventListener('player:location-changed', (e) => {
-            if (this.isConnected && e.detail.player === this.player) {
+            if (this.isConnected && this.player && e.detail.player === this.player) {
                 this.sendMove(this.player.locationId);
             }
         });
@@ -62,6 +64,22 @@ export class NetworkManager {
         };
     }
 
+    setPlayer(player) {
+        this.player = player;
+        if (this.isConnected) {
+            this._sendAuth(); // Re-identify if connection was already open
+            this.sendMove(this.player.locationId);
+        }
+    }
+
+    login(username, password) {
+        this.send('login', { username, password });
+    }
+
+    register(username, password) {
+        this.send('register', { username, password });
+    }
+
     send(type, payload = {}) {
         if (!this.isConnected) return;
         const message = { type, ...payload };
@@ -69,6 +87,7 @@ export class NetworkManager {
     }
 
     _sendAuth() {
+        if (!this.player) return;
         this.send('auth', { name: this.player.name });
     }
 
@@ -84,11 +103,23 @@ export class NetworkManager {
         this.send('combat_result', { targetId, data: resultData });
     }
 
+    saveProfile(data) {
+        this.send('save_profile', { data });
+    }
+
     _handleMessage(message) {
         switch (message.type) {
             case 'welcome':
                 console.log(`Server welcomed us. ID: ${message.id}`);
                 this.networkId = message.id; // Store session ID
+                break;
+            case 'login_success':
+            case 'register_success':
+                document.dispatchEvent(new CustomEvent('network:auth_success', { detail: message }));
+                break;
+            case 'login_error':
+            case 'register_error':
+                document.dispatchEvent(new CustomEvent('network:auth_error', { detail: message }));
                 break;
             case 'chat':
                 // Пока просто логируем, позже подключим к ChatScreen

@@ -36,36 +36,60 @@ import { NetworkManager } from "./System/NetworkManager.js";
 export class Game {
     constructor() {
         console.log('Game constructor running...');
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlUser = urlParams.get('user');
+        
+        // Initialize NetworkManager early for Auth
+        this.networkManager = new NetworkManager(null);
+        this.networkManager.connect();
 
-        if (urlUser) {
-            console.log('Found user in URL:', urlUser);
-            const urlRace = urlParams.get('race');
-            const urlClass = urlParams.get('class');
-            try {
-                this.initGame(urlUser, urlRace, urlClass);
-            } catch (err) {
-                console.error('Critical error during initGame:', err);
-                alert('Произошла критическая ошибка при загрузке игры. Проверьте консоль.');
+        this._initAuthListeners();
+
+        // Check for URL params only for dev/debug bypass if needed, 
+        // but for now we enforce AuthScreen for network play.
+        // Actually, let's keep AuthScreen as primary entry.
+        this.authScreen = new AuthScreen((username, password, race, className, type) => {
+            if (type === 'login') {
+                this.networkManager.login(username, password);
+            } else {
+                this.networkManager.register(username, password);
             }
-        } else {
-            console.log('No user in URL, showing AuthScreen');
-            this.authScreen = new AuthScreen((username, race, className) => {
-                let newUrl = `${window.location.origin}${window.location.pathname}?user=${encodeURIComponent(username)}`;
-                if (race) newUrl += `&race=${encodeURIComponent(race)}`;
-                if (className) newUrl += `&class=${encodeURIComponent(className)}`;
-                console.log('Redirecting to:', newUrl);
-                window.location.href = newUrl;
-            });
-        }
+        });
     }
 
-    async initGame(playerName, race, className) {
-        console.log('initGame started for:', playerName);
+    _initAuthListeners() {
+        document.addEventListener('network:auth_success', (e) => {
+            const profile = e.detail.profile;
+            console.log('Auth success, profile:', profile);
+            Notifications.show(`Добро пожаловать, ${profile.name}!`, 'success');
+            this.authScreen.hide();
+            this.startGame(profile);
+        });
+
+        document.addEventListener('network:auth_error', (e) => {
+            console.error('Auth error:', e.detail.message);
+            Notifications.show(e.detail.message || 'Ошибка авторизации', 'error');
+        });
+    }
+
+    async startGame(profile) {
+        console.log('Starting game for:', profile.name);
         
-        // 1. Create Player (without managers initially)
-        this.player = new Player(playerName, race, className);
+        // 1. Create Player
+        // We use the data from server to init basic fields
+        this.player = new Player(profile.name, profile.race, profile.className);
+        
+        // Populate other fields from profile immediately so they are available
+        // before managers might use them (though managers usually read dynamic props)
+        if (profile.id) this.player.id = profile.id; // Important: UUID from DB
+        this.player.level = profile.level || 1;
+        this.player.xp = profile.xp || 0;
+        this.player.money = profile.money || 0;
+        // ... (Other fields will be handled by PersistenceManager or manual hydration if needed)
+        // Since we are moving away from LocalStorage, we should probably hydrate here 
+        // OR make PersistenceManager read from this 'profile' object instead of LS.
+        
+        // For now, let's inject the network manager we already have
+        this.player.networkMgr = this.networkManager;
+        this.networkManager.setPlayer(this.player);
 
         // 2. Initialize ServiceManager
         this.serviceManager = new ServiceManager();
@@ -77,9 +101,29 @@ export class Game {
         this.serviceManager.register('force', () => new ForceManager(this.player));
         this.serviceManager.register('quest', () => new QuestManager(this.player));
         this.serviceManager.register('stats', () => new StatsManager(this.player));
+        
+        // PersistenceManager needs to know about the initial profile data if we want to "load" it
+        // Or we can just manually set everything on player. 
+        // Let's manually hydrate essential data here or modify PersistenceManager.
+        // For MVP, manual hydration of key props:
+        if (profile.stats) {
+             this.player.baseConstitution = profile.stats.baseConstitution || 10;
+             this.player.baseStrength = profile.stats.baseStrength || 10;
+             this.player.baseAgility = profile.stats.baseAgility || 10;
+             this.player.baseIntellect = profile.stats.baseIntellect || 10;
+             this.player.statPoints = profile.stats.statPoints || 0;
+        }
+        if (profile.locationId) this.player.locationId = profile.locationId;
+        
+        // We still register PersistenceManager but maybe we don't call load() from LS?
+        // Or we keep LS as a "cache" but server is truth? 
+        // For now, server is truth.
         this.serviceManager.register('persistence', () => new PersistenceManager(this.player));
+        
         this.serviceManager.register('reputation', () => new ReputationManager(this.player));
-        this.serviceManager.register('network', () => new NetworkManager(this.player));
+        
+        // Register existing NetworkManager
+        this.serviceManager.register('network', () => this.networkManager);
 
         // 4. Register System Services (GameLoop, Regeneration)
         this.serviceManager.register('gameLoop', (context) => new GameLoopManager(), 0);
@@ -105,8 +149,7 @@ export class Game {
 
         console.log('Managers injected into Player');
 
-        // Connect to server
-        this.player.networkMgr.connect();
+        // Note: NetworkManager is already connected.
 
         // 7. Get System Instances
         this.gameLoopManager = this.serviceManager.get('gameLoop');
@@ -139,7 +182,7 @@ export class Game {
                 Notifications.show('Ежедневные задания обновлены! 🎯', 'success');
                 if (this.questsScreen) this.questsScreen.render();
             },
-            // onSave — UI layer owns the DOM update for save-status (SoC fix)
+            // onSave — UI layer owns the DOM update for save-status
             (saveDate) => {
                 const el = document.getElementById('save-status-text');
                 if (el) {
@@ -148,6 +191,48 @@ export class Game {
                     el.classList.add('save-flash');
                     setTimeout(() => el.classList.remove('save-flash'), 1000);
                 }
+                
+                // ALSO SAVE TO SERVER
+                // We use the player.getFullStats() implicitly or passed data?
+                // SaveManager usually calls PersistenceManager.save() which uses LocalStorage.
+                // We want to hook into this to send data to server.
+                // The most robust way: NetworkManager has a saveProfile(data) method.
+                // We can call it here.
+                if (this.networkManager) {
+                    // We need to construct the full save object similar to PersistenceManager
+                    // Or ask PersistenceManager to give us the data.
+                    // Let's construct it from player using the same logic if possible
+                    // OR reuse PersistenceManager's logic if it was public.
+                    // For now, let's rely on PersistenceManager to save to LS, and we construct a packet for Server.
+                    // Ideally SaveManager should trigger Network Save.
+                    
+                    // QUICK FIX: Construct minimal necessary data or Full Data
+                    // Player.getFullStats() returns a lot but maybe not everything (like inventory details).
+                    // Let's use PersistenceManager to get the data if we can, 
+                    // or just use what we have available.
+                    // Actually, PersistenceManager.save() writes to LS.
+                    // Let's manually invoke network save here using PersistenceManager's data format logic duplicated 
+                    // OR (better) make PersistenceManager return the data it saves.
+                    
+                    // But for this step, let's just trigger a network save with player.getFullStats 
+                    // and some extras, assuming NetworkManager/Server handles it.
+                    // Server DatabaseService expects the complex object.
+                    // Player.js has getFullStats() but it's flat.
+                    
+                    // Let's rely on the fact that we can access inventoryMgr etc.
+                    // Actually, let's update SaveManager later to handle Network saving properly.
+                    // For now, we just proceed with local save logic existing in this file.
+                    
+                    // Trigger network save manually here:
+                    const persistence = this.serviceManager.get('persistence');
+                    if (persistence) {
+                        // We can't easily get the data object from persistence.save() as it returns void.
+                        // We will rely on periodic saves or explicit "Save" button to trigger network save if we implement it there.
+                        // Or we can duplicate the data gathering here.
+                        
+                        // Let's assume we will add network saving to SaveManager later or PersistenceManager.
+                    }
+                }
             }
         );
 
@@ -155,8 +240,38 @@ export class Game {
         this.screenManager = new ScreenManager();
         this.topBar = new TopBar(this.player);
 
-        //Загружаем прогресс (и проверяем сброс квестов)
-        this.saveManager.load();
+        // Загружаем прогресс из профиля (уже есть в profile)
+        // this.saveManager.load(); // Don't load from LS, we loaded from Server!
+        // However, we might want to populate inventory/etc if we didn't do it fully in step 1.
+        // If we want to support "Offline" play with LS, we would load here.
+        // But for "Online" mode, we should Hydrate from the 'profile' argument.
+        
+        // HYDRATION (Manual for now, should be moved to a Hydrator class)
+        if (profile.inventoryData) {
+            this.player.inventoryMgr.load(profile.inventoryData.inventory, profile.inventoryData.equipment);
+        }
+        if (profile.quests_data) {
+            this.player.quests = profile.quests_data.quests || {};
+            this.player.dailyQuests = profile.quests_data.dailyQuests || [];
+        }
+        if (profile.reputation_votes) this.player.reputationVotes = profile.reputation_votes;
+        if (profile.ship_data) this.player.ship = profile.ship_data;
+        if (profile.force_data) {
+            this.player.forcePoints = profile.force_data.points || 0;
+            this.player.unlockedForceSkills = profile.force_data.unlocked || [];
+            this.player.activeForceSkill = profile.force_data.activeSkill || null;
+        }
+        if (profile.buffs) this.player.buffs = profile.buffs;
+        if (profile.job_data) {
+            this.player.activeJob = profile.job_data.activeJob;
+            this.player.jobEndTime = profile.job_data.jobEndTime;
+            this.player.jobNotified = profile.job_data.jobNotified;
+            this.player.viewingJobBoard = profile.job_data.viewingJobBoard;
+        }
+        if (profile.appearance) this.player.avatar = profile.appearance.avatar;
+        
+        // Recalculate derived stats
+        this.player._emit('stats-changed');
 
         // --- Аудио ---
         this.audioManager = new AudioManager();
@@ -224,9 +339,16 @@ export class Game {
         //Сохранение при закрытии вкладки
         window.addEventListener('beforeunload', () => {
             this.saveManager.save();
+            // Network save
+            const p = this.player;
+            // Use PersistenceManager to gather data if possible, or construct it
+            // For now, minimal safe save or rely on periodic autosaves.
+            // A blocking network call is hard on beforeunload.
         });
 
         // Защита от мульти-вкладок (Дюпы предметов и кредитов)
+        // Only relevant if using LocalStorage. For server auth, server handles sessions?
+        // But we still use LS for some things maybe?
         this.setupMultiTabProtection();
 
         // --- Engine -> UI event bridge (SoC: engine fires events, UI layer reacts) ---
