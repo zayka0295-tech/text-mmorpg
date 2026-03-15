@@ -765,6 +765,99 @@ class DatabaseService {
     }
 
     /**
+     * Deposit money into bank
+     * @param {string} playerId
+     * @param {number} amount
+     * @returns {Promise<{data, error}>}
+     */
+    async deposit(playerId, amount) {
+        if (!this.supabase) return { error: 'Database not configured' };
+        if (amount <= 0) return { error: 'Invalid amount' };
+
+        try {
+            const { data: profile, error: fetchError } = await this.supabase
+                .from('profiles')
+                .select('money, bank_balance')
+                .eq('id', playerId)
+                .single();
+
+            if (fetchError || !profile) return { error: 'Profile not found' };
+
+            if (profile.money < amount) {
+                return { error: 'Insufficient funds' };
+            }
+
+            const newMoney = profile.money - amount;
+            const newBank = (profile.bank_balance || 0) + amount;
+
+            const { data: updatedProfile, error: updateError } = await this.supabase
+                .from('profiles')
+                .update({ 
+                    money: newMoney, 
+                    bank_balance: newBank,
+                    updated_at: new Date()
+                })
+                .eq('id', playerId)
+                .select()
+                .single();
+
+            if (updateError) return { error: updateError.message };
+
+            return { data: this._mapDbProfileToGameData(updatedProfile), error: null };
+        } catch (error) {
+            this._logDbError('deposit.catch', error, { playerId });
+            return { error: 'Transaction failed' };
+        }
+    }
+
+    /**
+     * Withdraw money from bank
+     * @param {string} playerId
+     * @param {number} amount
+     * @returns {Promise<{data, error}>}
+     */
+    async withdraw(playerId, amount) {
+        if (!this.supabase) return { error: 'Database not configured' };
+        if (amount <= 0) return { error: 'Invalid amount' };
+
+        try {
+            const { data: profile, error: fetchError } = await this.supabase
+                .from('profiles')
+                .select('money, bank_balance')
+                .eq('id', playerId)
+                .single();
+
+            if (fetchError || !profile) return { error: 'Profile not found' };
+
+            const currentBank = profile.bank_balance || 0;
+            if (currentBank < amount) {
+                return { error: 'Insufficient bank funds' };
+            }
+
+            const newMoney = profile.money + amount;
+            const newBank = currentBank - amount;
+
+            const { data: updatedProfile, error: updateError } = await this.supabase
+                .from('profiles')
+                .update({ 
+                    money: newMoney, 
+                    bank_balance: newBank,
+                    updated_at: new Date()
+                })
+                .eq('id', playerId)
+                .select()
+                .single();
+
+            if (updateError) return { error: updateError.message };
+
+            return { data: this._mapDbProfileToGameData(updatedProfile), error: null };
+        } catch (error) {
+            this._logDbError('withdraw.catch', error, { playerId });
+            return { error: 'Transaction failed' };
+        }
+    }
+
+    /**
      * Helper to convert DB snake_case to game camelCase
      */
     _mapDbProfileToGameData(dbProfile) {

@@ -508,6 +508,54 @@ async function handleMessage(ws, message, metadata) {
             }
             break;
 
+        case 'bank_deposit':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'bank_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const depositRes = await db.deposit(metadata.dbId, message.amount);
+                if (depositRes.error) {
+                    ws.send(JSON.stringify({ type: 'bank_result', ok: false, operation: 'deposit', error: depositRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'bank_result', 
+                        ok: true, 
+                        operation: 'deposit', 
+                        profile: depositRes.data,
+                        amount: message.amount
+                    }));
+                }
+            } catch (e) {
+                console.error('Bank deposit error:', e);
+                ws.send(JSON.stringify({ type: 'bank_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
+        case 'bank_withdraw':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'bank_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const withdrawRes = await db.withdraw(metadata.dbId, message.amount);
+                if (withdrawRes.error) {
+                    ws.send(JSON.stringify({ type: 'bank_result', ok: false, operation: 'withdraw', error: withdrawRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'bank_result', 
+                        ok: true, 
+                        operation: 'withdraw', 
+                        profile: withdrawRes.data,
+                        amount: message.amount
+                    }));
+                }
+            } catch (e) {
+                console.error('Bank withdraw error:', e);
+                ws.send(JSON.stringify({ type: 'bank_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
         case 'reputation_vote':
             if (message.targetId) {
                 const voterName = message.senderName || 'Anonymous';

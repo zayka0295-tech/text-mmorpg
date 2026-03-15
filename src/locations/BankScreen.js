@@ -15,7 +15,34 @@ export class BankScreen {
         this.render();
     }
 
+    _initListeners() {
+        if (this._listenersInitialized) return;
+        this._listenersInitialized = true;
+
+        document.addEventListener('network:bank_result', (e) => {
+            const { ok, operation, error, profile, amount } = e.detail;
+            if (ok && profile) {
+                this.player.money = profile.money;
+                this.player.bankBalance = profile.bankBalance;
+                this.player._emit('money-changed');
+                
+                if (this.currentLocationId) {
+                    this.render(); // Re-render to show new balances
+                }
+
+                if (operation === 'deposit') {
+                    Notifications.show(`Вы внесли ${amount.toLocaleString()} кр. на счет.`, 'success');
+                } else if (operation === 'withdraw') {
+                    Notifications.show(`Вы сняли ${amount.toLocaleString()} кр. со счета.`, 'success');
+                }
+            } else {
+                Notifications.show(error || 'Ошибка транзакции', 'error');
+            }
+        });
+    }
+
     render() {
+        this._initListeners();
         let html = `<div class="bank-layout">
                 <div class="bank-header">
                     <h2>МЕЖГАЛАКТИЧЕСКИЙ БАНКОВСКИЙ КЛАН</h2>
@@ -121,11 +148,9 @@ export class BankScreen {
                     return;
                 }
 
-                this.player.money -= amount;
-                this.player.bankBalance += amount;
-                this.player.save();
-                this.render();
-                Notifications.show(`Вы внесли ${amount.toLocaleString()} кр. на счет.`, 'success');
+                if (this.player.networkMgr) {
+                    this.player.networkMgr.send('bank_deposit', { amount });
+                }
             });
         }
 
@@ -142,11 +167,9 @@ export class BankScreen {
                     return;
                 }
 
-                this.player.bankBalance -= amount;
-                this.player.money += amount;
-                this.player.save();
-                this.render();
-                Notifications.show(`Вы сняли ${amount.toLocaleString()} кр. со счета.`, 'success');
+                if (this.player.networkMgr) {
+                    this.player.networkMgr.send('bank_withdraw', { amount });
+                }
             });
         }
     }
