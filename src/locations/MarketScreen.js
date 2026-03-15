@@ -310,17 +310,18 @@ export class MarketScreen {
                     'Купить',
                     'Отмена',
                     () => {
-                        this.player.money -= cost;
-                        // Pass the full generated item object — addItem handles it
-                        this.player.addItem(item, 1);
-                        this.player.save();
-                        Modals.alert('Успех', `<span style="color:#27ae60; font-weight:bold;">${(item?.name || '')}— куплено!</span>`);
+                        if (this.player.money < cost) {
+                            Modals.alert('Ошибка', 'Не хватает кредитов!');
+                            return;
+                        }
+                        if (this.player.networkMgr) {
+                            this.player.networkMgr.send('market_buy', { itemId: item.id, amount: 1 });
+                        }
                     }
                 );
-            });if (wrkMgr) {
-        });    neworkMgr.snd'market_buy', {  }
-
-
+            });
+        });
+    }
 
     attachBuyListeners() {
         const buyBtns = this.container.querySelectorAll('.btn-buy');
@@ -341,34 +342,27 @@ export class MarketScreen {
                          Modals.promptNumber(
                             'Купить ремкомплект',
                             `Сколько <b>${(item?.name || '')}</b> вы хотите купить?<br><span style="color:#aaa;font-size:12px;">Цена:${cost}кр. / шт.</span>`,
-                            1,if (wrkMgr) {
-                            'Куп    ить',neworkMgr.snd'market_buy', {  }
-                            (amo
+                            1,
+                            'Купить',
+                            'Отмена',
+                            (amount) => {
                                 if (amount <= 0) {
                                     Modals.alert('Ошибка', `Количество должно быть больше нуля!`);
                                     return;
                                 }
                                 const totalCost = cost * amount;
                                 if (this.player.money >= totalCost) {
-                                    this.player.money -= totalCost;
-                                    this.player.addItem(itemId, amount);
-                                    this.player.save();
-                                    Modals.alert('Успех', `<span style="color:#27ae60; font-weight:bold; font-size:16px;">Куплено:${(item?.name || '')} (x${amount})</span>`);
+                                    if (this.player.networkMgr) {
+                                        this.player.networkMgr.send('market_buy', { itemId, amount });
+                                    }
                                 } else {
                                     Modals.alert('Ошибка', `Не хватает кредитов!`);
                                 }
-                            }// Sp are secia, hndl via ship maket or add specific handler if needed
-                                // Fr ow, lt's assume market_buworksfr hips if invenory supports it, 
-                        );// bu ss re usuall uniqu poperty
-                                // Let' keep client logic for ssfornowor mgrate later?
-                                // User aske for MarketSys audit ShipMarketScreen ssearate.
-                        re//tThisuisrforn'consumable';or's' tpe in genal mrkt?
-                     }//Cnsumbejs hs 'ship_rpai_ki whichi tye CONSUMABLE.
-                                // If'hip' pe appears h,i's likly a msake rpeciald
-                                // Assuming stadrd buy:
-                               if(thi.lyer.etworkMgr {
-    .playernetworkMg.s('markt_uy', { imId, amou: 1 }
-                              }
+                            }
+                        );
+                        return;
+                    }
+
                     Modals.promptNumber(
                         'Количество',
                         `Сколько <b>${(item?.name || '')}</b> вы хотите купить?<br><span style="color:#aaa;font-size:12px;">Цена:${cost}кр. / шт.</span>`,
@@ -382,9 +376,9 @@ export class MarketScreen {
                             }
                             const totalCost = cost * amount;
                             if (this.player.money >= totalCost) {
-                                if (this.player.networkMgr) {Cost;
-                                    this.player.networkMgr.send('market_buy', { itemId, amount: a });
-                                }t})</span>`);
+                                if (this.player.networkMgr) {
+                                    this.player.networkMgr.send('market_buy', { itemId, amount });
+                                }
                             } else {
                                 Modals.alert('Ошибка', `Не хватает кредитов! Надо: <span style="color:#e74c3c">${totalCost}кр.</span>`);
                             }
@@ -398,11 +392,9 @@ export class MarketScreen {
                         'Отмена',
                         () => {
                             if (this.player.money >= cost) {
-                                this.player.money -= cost;
-                                this.player.ship = { id: item.id, hp: 100 }; //Новый корабль всегда тел
-                                this.player.save();
-                                Modals.alert('Поздравляем!', `<span style="color:#27ae60; font-weight:bold; font-size:16px;">Вы стали владельцем${(item?.name || '')}!</span>`);
-                                this.renderTabContent('ship'); //Обновить вкладку
+                                if (this.player.networkMgr) {
+                                    this.player.networkMgr.send('market_buy', { itemId, amount: 1 });
+                                }
                             } else {
                                 Modals.alert('Ошибка', `Не хватает кредитов!`);
                             }
@@ -416,10 +408,9 @@ export class MarketScreen {
                             'Купить',
                             'Отмена',
                             () => {
-                                this.player.money -= cost;
-                                this.player.addItem(itemId, 1);
-                                this.player.save();
-                                Modals.alert('Успех', `<span style="color:#27ae60; font-weight:bold; font-size:16px;">Куплено:${(item?.name || '')}</span>`);
+                                if (this.player.networkMgr) {
+                                    this.player.networkMgr.send('market_buy', { itemId, amount: 1 });
+                                }
                             }
                         );
                     } else {
