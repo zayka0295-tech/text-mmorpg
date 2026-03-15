@@ -461,6 +461,53 @@ async function handleMessage(ws, message, metadata) {
             }
             break;
 
+        case 'job_start':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'job_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const startRes = await db.startJob(metadata.dbId, message.jobId);
+                if (startRes.error) {
+                    ws.send(JSON.stringify({ type: 'job_result', ok: false, operation: 'start', error: startRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'job_result', 
+                        ok: true, 
+                        operation: 'start', 
+                        profile: startRes.data 
+                    }));
+                }
+            } catch (e) {
+                console.error('Job start error:', e);
+                ws.send(JSON.stringify({ type: 'job_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
+        case 'job_complete':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'job_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const completeRes = await db.completeJob(metadata.dbId);
+                if (completeRes.error) {
+                    ws.send(JSON.stringify({ type: 'job_result', ok: false, operation: 'complete', error: completeRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'job_result', 
+                        ok: true, 
+                        operation: 'complete', 
+                        profile: completeRes.data,
+                        rewards: completeRes.rewards
+                    }));
+                }
+            } catch (e) {
+                console.error('Job complete error:', e);
+                ws.send(JSON.stringify({ type: 'job_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
         case 'reputation_vote':
             if (message.targetId) {
                 const voterName = message.senderName || 'Anonymous';

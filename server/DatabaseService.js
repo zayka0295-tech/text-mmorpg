@@ -562,6 +562,209 @@ class DatabaseService {
     }
 
     /**
+     * Start a job securely
+     * @param {string} playerId
+     * @param {string} jobId
+     * @returns {Promise<{data, error}>}
+     */
+    async startJob(playerId, jobId) {
+        if (!this.supabase) return { error: 'Database not configured' };
+
+        try {
+            const JOBS = require('./data/jobs');
+            const jobDef = JOBS[jobId];
+            if (!jobDef) return { error: 'Job not found' };
+
+            // Fetch profile to check if already working and check buffs
+            const { data: profile, error: fetchError } = await this.supabase
+                .from('profiles')
+                .select('job_data, buffs')
+                .eq('id', playerId)
+                .single();
+
+            if (fetchError || !profile) return { error: 'Profile not found' };
+
+            if (profile.job_data?.activeJob) {
+                // Check if old job is actually expired/stuck? 
+                // For now, strict rule: cannot start new if active exists.
+                // Client should complete it first.
+                // But if stuck, user might be locked. 
+                // We'll assume completeActiveJob handles stuck jobs or we overwrite if forced?
+                // Better: Require completion.
+                return { error: 'You already have an active job' };
+            }
+
+            let durationMs = jobDef.timeMs;
+            
+            // Server-side buff check for Corellian Ale
+            // buffs structure: { "buffId": expireTimeMs, ... } or similar?
+            // Player.js: this.buffs = {}; addBuff(id, duration) -> this.buffs[id] = Date.now() + duration
+            // So buffs key is ID, value is expiration timestamp.
+            const buffs = profile.buffs || {};
+            const now = Date.now();
+            
+            if (buffs['corellian_ale'] && buffs['corellian_ale'] > now) {
+                durationMs = Math.min(durationMs, 3 * 60 * 1000); // 3 minutes cap
+            }
+
+            const jobEndTime = now + durationMs;
+
+            const newJobData = {
+                ...profile.job_data,
+                activeJob: jobId,
+                jobEndTime: jobEndTime,
+                jobNotified: false
+            };
+
+            const { data: updatedProfile, error: updateError } = await this.supabase
+                .from('profiles')
+                .update({ 
+                    job_data: newJobData,
+                    updated_at: new Date()
+                })
+                .eq('id', playerId)
+                .select()
+                .single();
+
+            if (updateError) return { error: updateError.message };
+
+            return { data: this._mapDbProfileToGameData(updatedProfile), error: null };
+        } catch (error) {
+            this._logDbError('startJob.catch', error, { playerId, jobId });
+            return { error: 'Failed to start job' };
+        }
+    }
+
+    /**
+     * Complete active job securely
+     * @param {string} playerId
+     * @returns {Promise<{data, error}>}
+     */
+    async completeJob(playerId) {
+        if (!this.supabase) return { error: 'Database not configured' };
+
+        try {
+            const { data: profile, error: fetchError } = await this.supabase
+                .from('profiles')
+                .select('*') // Need full profile for stats update (money, xp, etc)
+                .eq('id', playerId)
+                .single();
+
+            if (fetchError || !profile) return { error: 'Profile not found' };
+
+            const jobData = profile.job_data || {};
+            const activeJobId = jobData.activeJob;
+            const jobEndTime = jobData.jobEndTime || 0;
+
+            if (!activeJobId) return { error: 'No active job' };
+
+            if (Date.now() < jobEndTime) {
+                const remaining = Math.ceil((jobEndTime - Date.now()) / 1000);
+                return { error: `Job not finished yet. Wait ${remaining}s` };
+            }
+
+            const JOBS = require('./data/jobs');
+            const jobDef = JOBS[activeJobId];
+            if (!jobDef) {
+                // Invalid job in DB? Clear it to unstuck user
+                await this.supabase.from('profiles').update({ job_data: {} }).eq('id', playerId);
+                return { error: 'Invalid job data found. Resetting.' };
+            }
+
+            // Calculate rewards
+            const rewards = jobDef.rewards || {};
+            let newMoney = (profile.money || 0) + (rewards.credits || 0);
+            let newXp = (profile.xp || 0) + (rewards.xp || 0);
+            let newAlignment = (profile.alignment || 0) + (rewards.alignment || 0);
+            
+            // Level up logic? 
+            // Ideally we just save XP and let client/next sync handle level up calc?
+            // Or simple server-side level up check?
+            // DatabaseService shouldn't contain complex game logic ideally.
+            // But we need to update level if we want it persisted correctly.
+            // Let's implement basic level up: XP needed = 100 * (1.5 ^ (level - 1))
+            // This matches StatsManager.js logic roughly (needs verification of exact formula)
+            // StatsManager: this.player.nextLevelXp = Math.floor(100 * Math.pow(1.5, this.player.level - 1));
+            // Let's allow client to detect level up from XP change? 
+            // Or we just update XP and Level here if we can.
+            // For now, update XP. If client sees XP > max, it calls levelUp?
+            // But 'xp' in DB is just number. 'level' is number.
+            // If we don't update level here, client might level up locally, then save?
+            // Yes, client `gainXp` -> `levelUp` -> `save()`.
+            // But if we trust client for level up, it's exploitable?
+            // Ideally server handles XP -> Level.
+            // Let's implement basic level loop here to be safe.
+            
+            let currentLevel = profile.level || 1;
+            // Re-calculate nextLevelXp logic
+            const getNextXp = (lvl) => Math.floor(100 * Math.pow(1.5, lvl - 1));
+            
+            // Note: DB stores current XP. 
+            // StatsManager: gainXp adds to xp. while xp >= nextLevelXp -> level++, xp -= nextLevelXp.
+            // DB 'xp' is usually current progress within level? Or total?
+            // Client Player.js: xp = 0 initially. gainXp adds.
+            // It seems 'xp' is "current XP into level".
+            // So we just add reward XP to current.
+            
+            while (newXp >= getNextXp(currentLevel) && currentLevel < 100) {
+                newXp -= getNextXp(currentLevel);
+                currentLevel++;
+                // Add stat points? 
+                // DB stats.statPoints.
+                // We need to update that too.
+            }
+            
+            let newStatPoints = (profile.stats?.statPoints || 0);
+            if (currentLevel > (profile.level || 1)) {
+                newStatPoints += (currentLevel - (profile.level || 1)) * 3;
+            }
+
+            const newJobData = {
+                ...jobData,
+                activeJob: null,
+                jobEndTime: 0,
+                jobNotified: false
+            };
+
+            const newStats = {
+                ...profile.stats,
+                statPoints: newStatPoints
+            };
+
+            const { data: updatedProfile, error: updateError } = await this.supabase
+                .from('profiles')
+                .update({ 
+                    money: newMoney,
+                    xp: newXp,
+                    level: currentLevel,
+                    alignment: newAlignment,
+                    stats: newStats,
+                    job_data: newJobData,
+                    updated_at: new Date()
+                })
+                .eq('id', playerId)
+                .select()
+                .single();
+
+            if (updateError) return { error: updateError.message };
+
+            return { 
+                data: this._mapDbProfileToGameData(updatedProfile), 
+                rewards: { 
+                    credits: rewards.credits, 
+                    xp: rewards.xp, 
+                    title: jobDef.title 
+                },
+                error: null 
+            };
+
+        } catch (error) {
+            this._logDbError('completeJob.catch', error, { playerId });
+            return { error: 'Failed to complete job' };
+        }
+    }
+
+    /**
      * Helper to convert DB snake_case to game camelCase
      */
     _mapDbProfileToGameData(dbProfile) {

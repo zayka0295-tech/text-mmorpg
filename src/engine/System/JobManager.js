@@ -3,54 +3,71 @@ import { JOBS } from "../Data/jobs.js";
 export class JobManager {
     constructor(player) {
         this.player = player;
+        this._initListeners();
     }
 
     startJob(jobId, durationMs) {
-        let finalDuration = durationMs;
-        
-        // Эффект Кореллианского эля: сокращаем время до 3 минут (180 000 мс)
-        if (this.player.hasBuff('corellian_ale')) {
-            finalDuration = Math.min(durationMs, 3 * 60 * 1000);
-        }
+        // Optimistic check (server will validate)
+        if (this.player.activeJob) return;
 
-        this.player.activeJob = jobId;
-        this.player.jobEndTime = Date.now() + finalDuration;
-        this.player.save();
+        if (this.player.networkMgr) {
+            this.player.networkMgr.send('job_start', { jobId });
+        }
     }
 
     completeActiveJob() {
         if (!this.player.activeJob) return null;
         // Check if time has passed (allow 100ms buffer for precision issues)
+        // This is just a client-side check to prevent spamming the server if obviously not done
         if (Date.now() < this.player.jobEndTime - 100) return null;
 
-        const job = JOBS[this.player.activeJob];
-        if (!job) {
-            // Invalid job, just reset
-            this.player.activeJob = null;
-            this.player.jobEndTime = 0;
-            return null;
+        if (this.player.networkMgr) {
+            this.player.networkMgr.send('job_complete', {});
         }
+        return null; // Async result handling via event
+    }
 
-        //Награды
-        this.player.money += job.rewards.credits;
-        this.player.gainXp(job.rewards.xp);
-        if (job.rewards.alignment) {
-            this.player.modifyAlignment(job.rewards.alignment);
-        }
+    _initListeners() {
+        document.addEventListener('network:job_result', (e) => {
+            const { ok, operation, error, profile, rewards } = e.detail;
+            
+            if (!ok) {
+                console.error('Job operation failed:', error);
+                // Maybe show notification?
+                return;
+            }
 
-        const result = {
-            title: job.title,
-            credits: job.rewards.credits,
-            xp: job.rewards.xp,
-        };
+            if (profile) {
+                // Sync player state
+                this.player.activeJob = profile.job_data?.activeJob || null;
+                this.player.jobEndTime = profile.job_data?.jobEndTime || 0;
+                this.player.jobNotified = !!profile.job_data?.jobNotified;
+                
+                this.player.money = profile.money;
+                this.player.xp = profile.xp;
+                this.player.level = profile.level;
+                this.player.alignment = profile.alignment;
+                
+                if (profile.stats) {
+                    this.player.statPoints = profile.stats.statPoints;
+                }
 
-        // Reset state
-        this.player.activeJob = null;
-        this.player.jobEndTime = 0;
-        this.player.jobNotified = false;
+                this.player._emit('money-changed');
+                this.player._emit('xp-changed');
+                this.player._emit('level-changed');
+                this.player._emit('stats-changed');
+            }
 
-        this.player.save();
-
-        return result;
+            if (operation === 'complete' && rewards) {
+                // Emit event for UI to show reward modal
+                document.dispatchEvent(new CustomEvent('job:completed', { 
+                    detail: { 
+                        title: rewards.title,
+                        credits: rewards.credits, 
+                        xp: rewards.xp 
+                    } 
+                }));
+            }
+        });
     }
 }

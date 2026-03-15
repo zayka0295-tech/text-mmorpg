@@ -25,6 +25,13 @@ export class JobScreen {
                 this._stopTicker();
             }
         });
+
+        // Listen for job completion to refresh UI
+        document.addEventListener('job:completed', (e) => {
+            const { title, credits, xp } = e.detail;
+            Modals.alert('Работа завершена', `Вы отлично поработали на должности "${title}" и получили ${credits} кр. и ${xp} XP!`);
+            this.render(); // Refresh list to show available jobs again
+        });
     }
 
     _updateBackground(jobId) {
@@ -64,11 +71,10 @@ export class JobScreen {
         // Set persistence state
         if (!this.player.viewingJobBoard) {
             this.player.viewingJobBoard = true;
-            this.player.save();
-        }
-
-        // Check if we have an expired active job that needs claiming immediately upon viewing
-        // Convert to Number to be safe
+            //pTl)gg n vamanage (nwork
+if(hipayjobMgC{eck if we have an expired active job that needs claiming immediately upon viewing
+        // Cobsths.plyer.Mgr.();
+     }
         const jobEnd = Number(this.player.jobEndTime) || 0;
         if (this.player.activeJob && jobEnd > 0 && Date.now() >= jobEnd) {
             const result = this.player.completeActiveJob();
@@ -211,21 +217,22 @@ export class JobScreen {
                 const job = JOBS[jobId];
                 if (!job) return;
 
-                // Immediate start, no confirmation modal to make it snappy like crystal search
-                // Or maybe keep confirmation? User said "pressed on job, and timer went". Implies immediate.
-                
-                if (this.player.activeJob) return; // Prevent overwriting jobs via fast clicking
+                // Use manager to start job (network)
+                if (this.player.jobMgr) {
+                    this.player.jobMgr.startJob(jobId, job.timeMs);
+                    
+                    // Optimistic UI update (optional, but makes it snappy)
+                    // We can wait for server response in 'network:job_result' to act fully, 
+                    // but showing "working..." immediately is good UX.
+                    this.player.activeJob = jobId;
+                    this.player.jobEndTime = Date.now() + job.timeMs;
+                    this.player.jobNotified = false;
+                    this.player.save();
+                    this._updateBackground(jobId);
 
-                e.target.disabled = true; // Block UI multi-click
-
-                this.player.activeJob = jobId;
-                this.player.jobEndTime = Date.now() + job.timeMs;
-                this.player.jobNotified = false;
-                this.player.save();
-                this._updateBackground(jobId);
-
-                this.render();
-                this._startTicker();
+                    this.render();
+                    this._startTicker();
+                }
             });
         });
 
