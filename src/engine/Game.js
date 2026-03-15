@@ -1,6 +1,7 @@
 import { Player } from './Entities/Player.js';
 import { SaveManager } from './System/SaveManager.js';
 import { AudioManager } from './System/AudioManager.js';
+import { QuestGenerator } from './System/QuestGenerator.js';
 import { ScreenManager } from '../ui/ScreenManager.js';
 import { TopBar } from '../ui/TopBar.js';
 import { BottomNav } from '../ui/BottomNav.js';
@@ -258,6 +259,14 @@ export class Game {
         // Quests (DatabaseService flattens quests_data into quests and dailyQuests)
         this.player.quests = profile.quests || {};
         this.player.dailyQuests = profile.dailyQuests || [];
+        
+        // If daily quests are missing (e.g. fresh account or error), generate them
+        if (!this.player.dailyQuests || this.player.dailyQuests.length === 0) {
+            console.log('Generating daily quests for hydrated player...');
+            this.player.dailyQuests = QuestGenerator.generateDailyQuests();
+            // We should save this immediately so it persists
+            this.player.save();
+        }
         
         // Reputation
         this.player.reputation = profile.reputation || 0;
