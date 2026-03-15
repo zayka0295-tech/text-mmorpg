@@ -135,7 +135,7 @@ export class PlayerModal {
         if (playerName === this.playerSelf.name) return;
 
         // Если это сетевой игрок (targetId передан), запрашиваем профиль
-        if (targetId && this.playerSelf.networkMgr) {
+        if ((targetId || playerName) && this.playerSelf.networkMgr) {
             if (targetPreview) {
                 const previewTarget = this._normalizeTargetData({
                     ...targetPreview,
@@ -154,7 +154,13 @@ export class PlayerModal {
             if (this.profileRequestTimeoutId) {
                 clearTimeout(this.profileRequestTimeoutId);
             }
-            this.playerSelf.networkMgr.requestProfile(targetId);
+            
+            if (targetId) {
+                this.playerSelf.networkMgr.requestProfile(targetId);
+            } else {
+                this.playerSelf.networkMgr.send('request_profile', { targetName: playerName });
+            }
+
             this.profileRequestTimeoutId = setTimeout(() => {
                 if (this.waitingForTargetId !== targetId) return;
                 const fallbackTarget = this._resolveTarget(targetId, playerName);

@@ -303,27 +303,37 @@ async function handleMessage(ws, message, metadata) {
             break;
             
         case 'request_profile':
-             if (message.targetId) {
-                 if (hasOpenConnectionForPlayer(message.targetId)) {
+             if (message.targetId || message.targetName) {
+                 // If we have ID and player is online, shortcut (peer-to-peer style routing)
+                 if (message.targetId && hasOpenConnectionForPlayer(message.targetId)) {
                      sendTo(message.targetId, message);
                  } else {
+                     // Fallback: Fetch from DB (Offline or Missing ID)
                      try {
-                         const profileResult = await db.loadProfileById(message.targetId);
-                         if (profileResult.error || !profileResult.data) {
+                         let profileResult;
+                         if (message.targetId) {
+                             profileResult = await db.loadProfileById(message.targetId);
+                         } else if (message.targetName) {
+                             profileResult = await db.loadProfile(message.targetName);
+                         }
+
+                         if (!profileResult || profileResult.error || !profileResult.data) {
                              console.error('Request profile DB fallback failed:', {
                                  targetId: message.targetId,
-                                 error: profileResult.error
+                                 targetName: message.targetName,
+                                 error: profileResult?.error
                              });
                          } else {
                              ws.send(JSON.stringify({
                                  type: 'profile_data',
-                                 senderId: message.targetId,
+                                 senderId: profileResult.data.id, // Always send back the real UUID
                                  data: profileResult.data
                              }));
                          }
                      } catch (error) {
                          console.error('Request profile fallback exception:', {
                              targetId: message.targetId,
+                             targetName: message.targetName,
                              message: error?.message,
                              stack: error?.stack
                          });

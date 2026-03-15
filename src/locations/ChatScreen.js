@@ -183,6 +183,7 @@ export class ChatScreen {
             if (clickable) {
                 const name = clickable.getAttribute('data-playername');
                 const id = clickable.getAttribute('data-playerid');
+                console.log('[ChatScreen] Clicked profile:', name, id);
                 const modal = window.gameInstance?.playerModal;
                 if (name && modal) modal.show(name, id);
             }
