@@ -268,9 +268,13 @@ class DatabaseService {
         // Remove undefined keys to avoid issues
         Object.keys(profile).forEach(key => profile[key] === undefined && delete profile[key]);
 
+        // Use update() instead of upsert() because upsert() tries an INSERT first, 
+        // which fails due to missing password_hash (NOT NULL constraint).
+        // Since we only save for existing users, update() is correct.
         const { data, error } = await this.supabase
             .from('profiles')
-            .upsert(profile, { onConflict: 'id' })
+            .update(profile)
+            .eq('id', profile.id)
             .select();
 
         if (error) {
