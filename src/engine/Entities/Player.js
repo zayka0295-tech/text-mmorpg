@@ -222,6 +222,7 @@ export class Player extends Entity {
 
   save() {
     if (this.persistenceMgr) this.persistenceMgr.save();
+    if (this.networkMgr) this.networkMgr.saveProfile(this.getFullStats());
   }
 
   load() {
@@ -319,6 +320,7 @@ export class Player extends Entity {
 
   getFullStats() {
     return {
+      id: this.id, // Critical for DB upsert
       name: this.name,
       avatar: this.avatar,
       hp: this.hp,
@@ -346,6 +348,8 @@ export class Player extends Entity {
       ship: this.ship,
       activeJob: this.activeJob,
       jobEndTime: this.jobEndTime,
+      jobNotified: this.jobNotified,
+      viewingJobBoard: this.viewingJobBoard,
       forcePoints: this.forcePoints,
       activeForceSkill: this.activeForceSkill,
       unlockedForceSkills: this.unlockedForceSkills,

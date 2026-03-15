@@ -237,48 +237,6 @@ export class Game {
                     el.classList.add('save-flash');
                     setTimeout(() => el.classList.remove('save-flash'), 1000);
                 }
-                
-                // ALSO SAVE TO SERVER
-                // We use the player.getFullStats() implicitly or passed data?
-                // SaveManager usually calls PersistenceManager.save() which uses LocalStorage.
-                // We want to hook into this to send data to server.
-                // The most robust way: NetworkManager has a saveProfile(data) method.
-                // We can call it here.
-                if (this.networkManager) {
-                    // We need to construct the full save object similar to PersistenceManager
-                    // Or ask PersistenceManager to give us the data.
-                    // Let's construct it from player using the same logic if possible
-                    // OR reuse PersistenceManager's logic if it was public.
-                    // For now, let's rely on PersistenceManager to save to LS, and we construct a packet for Server.
-                    // Ideally SaveManager should trigger Network Save.
-                    
-                    // QUICK FIX: Construct minimal necessary data or Full Data
-                    // Player.getFullStats() returns a lot but maybe not everything (like inventory details).
-                    // Let's use PersistenceManager to get the data if we can, 
-                    // or just use what we have available.
-                    // Actually, PersistenceManager.save() writes to LS.
-                    // Let's manually invoke network save here using PersistenceManager's data format logic duplicated 
-                    // OR (better) make PersistenceManager return the data it saves.
-                    
-                    // But for this step, let's just trigger a network save with player.getFullStats 
-                    // and some extras, assuming NetworkManager/Server handles it.
-                    // Server DatabaseService expects the complex object.
-                    // Player.js has getFullStats() but it's flat.
-                    
-                    // Let's rely on the fact that we can access inventoryMgr etc.
-                    // Actually, let's update SaveManager later to handle Network saving properly.
-                    // For now, we just proceed with local save logic existing in this file.
-                    
-                    // Trigger network save manually here:
-                    const persistence = this.serviceManager.get('persistence');
-                    if (persistence) {
-                        // We can't easily get the data object from persistence.save() as it returns void.
-                        // We will rely on periodic saves or explicit "Save" button to trigger network save if we implement it there.
-                        // Or we can duplicate the data gathering here.
-                        
-                        // Let's assume we will add network saving to SaveManager later or PersistenceManager.
-                    }
-                }
             }
         );
 
@@ -296,25 +254,31 @@ export class Game {
         if (profile.inventoryData) {
             this.player.inventoryMgr.load(profile.inventoryData.inventory, profile.inventoryData.equipment);
         }
-        if (profile.quests_data) {
-            this.player.quests = profile.quests_data.quests || {};
-            this.player.dailyQuests = profile.quests_data.dailyQuests || [];
-        }
-        if (profile.reputation_votes) this.player.reputationVotes = profile.reputation_votes;
-        if (profile.ship_data) this.player.ship = profile.ship_data;
-        if (profile.force_data) {
-            this.player.forcePoints = profile.force_data.points || 0;
-            this.player.unlockedForceSkills = profile.force_data.unlocked || [];
-            this.player.activeForceSkill = profile.force_data.activeSkill || null;
-        }
+        
+        // Quests (DatabaseService flattens quests_data into quests and dailyQuests)
+        this.player.quests = profile.quests || {};
+        this.player.dailyQuests = profile.dailyQuests || [];
+        
+        if (profile.reputationVotes) this.player.reputationVotes = profile.reputationVotes;
+        if (profile.ship) this.player.ship = profile.ship;
+        
+        // Force Data (DatabaseService flattens force_data)
+        this.player.forcePoints = profile.forcePoints || 0;
+        this.player.unlockedForceSkills = profile.unlockedForceSkills || [];
+        this.player.activeForceSkill = profile.activeForceSkill || null;
+        
         if (profile.buffs) this.player.buffs = profile.buffs;
-        if (profile.job_data) {
-            this.player.activeJob = profile.job_data.activeJob;
-            this.player.jobEndTime = profile.job_data.jobEndTime;
-            this.player.jobNotified = profile.job_data.jobNotified;
-            this.player.viewingJobBoard = profile.job_data.viewingJobBoard;
-        }
+        
+        // Job Data (DatabaseService flattens job_data)
+        this.player.activeJob = profile.activeJob || null;
+        this.player.jobEndTime = profile.jobEndTime || 0;
+        this.player.jobNotified = profile.jobNotified || false;
+        this.player.viewingJobBoard = profile.viewingJobBoard || false;
+        
         if (profile.appearance) this.player.avatar = profile.appearance.avatar;
+        // Or if DatabaseService maps it to 'avatar' directly? 
+        // DatabaseService: avatar: dbProfile.appearance?.avatar
+        if (profile.avatar) this.player.avatar = profile.avatar;
         
         // Recalculate derived stats
         this.player._emit('stats-changed');
