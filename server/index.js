@@ -243,6 +243,13 @@ async function handleMessage(ws, message, metadata) {
             }
             break;
 
+        case 'reputation_vote':
+            if (message.targetId) {
+                // Forward vote to target client to process
+                sendTo(message.targetId, message);
+            }
+            break;
+
         default:
             console.log("Unknown message type:", message.type);
     }

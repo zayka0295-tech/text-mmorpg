@@ -85,6 +85,10 @@ export class NetworkManager {
         this.send('register', { username, password });
     }
 
+    sendReputationVote(targetId, voteType) {
+        this.send('reputation_vote', { targetId, voteType });
+    }
+
     send(type, payload = {}) {
         if (!this.isConnected) return;
         const message = { type, ...payload };
@@ -167,6 +171,29 @@ export class NetworkManager {
                 break;
             case 'rob_result':
                 document.dispatchEvent(new CustomEvent('network:rob_result', { detail: message }));
+                break;
+            case 'reputation_vote':
+                // Someone voted for us
+                if (this.player) {
+                    const { voteType, senderName } = message; // senderName might need to be added by server or client
+                    // Actually server passes whatever we sent. 
+                    // We need to know who voted? Client A sent { targetId, voteType }.
+                    // Server forwards it. Server adds senderId? 
+                    // Server `handleMessage` adds `senderId`, `senderName` to message object!
+                    // So we have `message.senderName`.
+                    
+                    const change = voteType === 'up' ? 1 : -1;
+                    this.player.reputation = (this.player.reputation || 0) + change;
+                    // Save the change
+                    this.saveProfile(this.player.getFullStats());
+                    
+                    const notifType = voteType === 'up' ? 'success' : 'warning';
+                    const notifMsg = voteType === 'up' 
+                        ? `👍 ${message.senderName || 'Кто-то'} поднял вам репутацию!` 
+                        : `👎 ${message.senderName || 'Кто-то'} опустил вам репутацию!`;
+                    
+                    document.dispatchEvent(new CustomEvent('game:notification', { detail: { msg: notifMsg, type: notifType } }));
+                }
                 break;
             default:
                 console.log('Unknown server message:', message);

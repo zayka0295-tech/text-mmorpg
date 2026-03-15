@@ -332,14 +332,24 @@ export class Player extends Entity {
       agility: this.agility,
       intellect: this.intellect,
       className: this.className,
+      race: this.race,
+      title: this.title,
       level: this.level,
       xp: this.xp,
       nextLevelXp: this.nextLevelXp,
       money: this.money,
       bankBalance: this.bankBalance,
       alignment: this.alignment,
+      reputation: this.reputation,
+      reputationVotes: this.reputationVotes,
+      locationId: this.locationId,
+      ship: this.ship,
       activeJob: this.activeJob,
       jobEndTime: this.jobEndTime,
+      forcePoints: this.forcePoints,
+      activeForceSkill: this.activeForceSkill,
+      unlockedForceSkills: this.unlockedForceSkills,
+      buffs: this.buffs
     };
   }
 

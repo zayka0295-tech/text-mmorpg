@@ -14,6 +14,18 @@ export class ReputationManager {
             return;
         }
 
+        // 1. Network Logic
+        if (this.player.networkMgr) {
+            this.player.networkMgr.sendReputationVote(targetId, voteType);
+            Notifications.show(voteType === 'up' ? '👍 Вы проголосовали ЗА' : '👎 Вы проголосовали ПРОТИВ', 'success');
+            // Optimistically update local UI? 
+            // We can't easily update the target's data in our UI until they send it back, 
+            // but for now we just show success.
+            if (onSuccess) onSuccess(targetId);
+            return;
+        }
+
+        // 2. Legacy LocalStorage Logic
         try {
             const raw = localStorage.getItem(`sw_player_save_${targetName}`);
             if (!raw) {
