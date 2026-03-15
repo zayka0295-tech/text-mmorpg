@@ -76,7 +76,7 @@ export class Game {
             if (type === 'login') {
                 this.networkManager.login(username, password);
             } else {
-                this.networkManager.register(username, password);
+                this.networkManager.register(username, password, race, className);
             }
         });
     }
@@ -164,7 +164,18 @@ export class Game {
         this.player.baseIntellect = profile.baseIntellect ?? this.player.baseIntellect;
         this.player.statPoints = profile.statPoints ?? this.player.statPoints;
         if (profile.locationId) this.player.locationId = profile.locationId;
-        
+
+        // Hydrate Economy & Progression
+        this.player.money = profile.money ?? 0;
+        this.player.bankBalance = profile.bankBalance ?? 0;
+        this.player.datarii = profile.datarii ?? 0;
+        this.player.level = profile.level ?? 1;
+        this.player.xp = profile.xp ?? 0;
+
+        // Hydrate Identity
+        if (profile.name) this.player.name = profile.name;
+        if (profile.race) this.player.race = profile.race;
+        if (profile.className) this.player.className = profile.className;
         // We still register PersistenceManager but maybe we don't call load() from LS?
         // Or we keep LS as a "cache" but server is truth? 
         // For now, server is truth.
@@ -258,6 +269,9 @@ export class Game {
         if (profile.inventoryData) {
             this.player.inventoryMgr.load(profile.inventoryData.inventory, profile.inventoryData.equipment);
         }
+
+        // Hydrate HP (must be after inventory/stats to ensure maxHp is correct)
+        if (profile.hp !== undefined) this.player.hp = profile.hp;
         
         // Quests (DatabaseService flattens quests_data into quests and dailyQuests)
         this.player.quests = profile.quests || {};

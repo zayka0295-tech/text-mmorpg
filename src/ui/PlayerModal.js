@@ -179,7 +179,7 @@ export class PlayerModal {
                         this._showResult('❌ Профиль игрока не загрузился.', 'error');
                     }
                 }
-            }, 3000);
+            }, 1000);
             
             // Show loading state (optional, or just wait)
             // For now, we just wait. If it's fast, it will pop up instantly.

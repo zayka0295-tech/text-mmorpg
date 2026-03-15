@@ -204,7 +204,7 @@ async function handleMessage(ws, message, metadata) {
         case 'register':
             console.log(`Register attempt for ${message.username}`);
             try {
-                const regResult = await db.registerUser(message.username, message.password);
+                const regResult = await db.registerUser(message.username, message.password, message.race, message.className);
                 if (regResult.error) {
                      ws.send(JSON.stringify({ type: 'register_error', message: regResult.error }));
                 } else {
@@ -264,7 +264,14 @@ async function handleMessage(ws, message, metadata) {
             break;
 
         case 'chat':
-            if (!metadata.isAnonymous) broadcast(message);
+            if (!metadata.isAnonymous) {
+                // Add to history
+                chatHistory.push(message);
+                if (chatHistory.length > 50) {
+                    chatHistory.shift();
+                }
+                broadcast(message);
+            }
             break;
 
         case 'move': // Basic movement sync

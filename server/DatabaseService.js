@@ -45,7 +45,7 @@ class DatabaseService {
      * @param {string} password
      * @returns {Promise<{data, error}>}
      */
-    async registerUser(username, password) {
+    async registerUser(username, password, race, className) {
         if (!this.supabase) return { error: 'Database not configured' };
 
         try {
@@ -55,8 +55,9 @@ class DatabaseService {
             const profile = {
                 username: username,
                 password_hash: passwordHash,
-                class_name: 'Контрабандист',
-                race: 'Человек',
+                class_name: className || 'Контрабандист',
+                race: race || 'Человек',
+                title: className || 'Контрабандист', // Title defaults to class name
                 level: 1,
                 xp: 0,
                 money: 0,

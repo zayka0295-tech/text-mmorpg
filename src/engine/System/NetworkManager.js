@@ -79,8 +79,8 @@ export class NetworkManager {
         this.send('login_token', { token });
     }
 
-    register(username, password) {
-        this.send('register', { username, password });
+    register(username, password, race, className) {
+        this.send('register', { username, password, race, className });
     }
 
     sendReputationVote(targetId, voteType) {
