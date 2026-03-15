@@ -315,7 +315,8 @@ class DatabaseService {
                 baseIntellect: playerData.baseIntellect,
                 hp: playerData.hp,
                 statPoints: playerData.statPoints,
-                hasMigratedToStatPoints: true
+                hasMigratedToStatPoints: true,
+                combatState: playerData.combatState // Save combat state
             },
             inventory_data: playerData.inventoryData, // { inventory: [], equipment: {} }
             quests_data: {
@@ -597,6 +598,7 @@ class DatabaseService {
             baseIntellect: dbProfile.stats?.baseIntellect,
             hp: dbProfile.stats?.hp,
             statPoints: dbProfile.stats?.statPoints,
+            combatState: dbProfile.stats?.combatState, // Hydrate combat state
             hasMigratedToStatPoints: dbProfile.stats?.hasMigratedToStatPoints,
             
             inventoryData: dbProfile.inventory_data,

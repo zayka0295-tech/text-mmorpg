@@ -58,6 +58,8 @@ export class Player extends Entity {
      this.activeForceSkill = null;
      this.unlockedForceSkills = [];
 
+     this.combatState = null; // { type: 'pvp'|'pve', targetId: '...', startTime: ... }
+
      this.dailyQuests = QuestGenerator.generateDailyQuests();
      this.quests = {};
 
@@ -367,6 +369,7 @@ export class Player extends Entity {
       jobNotified: this.jobNotified,
       viewingJobBoard: this.viewingJobBoard,
       forcePoints: this.forcePoints,
+      combatState: this.combatState,
       activeForceSkill: this.activeForceSkill,
       unlockedForceSkills: this.unlockedForceSkills,
       buffs: this.buffs

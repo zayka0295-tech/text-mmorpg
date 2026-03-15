@@ -300,6 +300,11 @@ export class Game {
         this.player.unlockedForceSkills = profile.unlockedForceSkills || [];
         this.player.activeForceSkill = profile.activeForceSkill || null;
         
+        // Combat State
+        if (profile.combatState) {
+            this.player.combatState = profile.combatState;
+        }
+
         if (profile.buffs) this.player.buffs = profile.buffs;
         
         // Job Data (DatabaseService flattens job_data)
@@ -347,7 +352,18 @@ export class Game {
 
         //--- Восстановление боя или стартовый экран ---
         const savedCombatJson = localStorage.getItem(`sw_active_combat_${this.player.name}`);
-        if (savedCombatJson) {
+        let restored = false;
+
+        // 1. Try to restore from server-persisted state (more reliable)
+        if (this.player.combatState) {
+            console.log('Restoring combat from server state...');
+            if (this.combatScreen.restoreCombat(this.player.combatState)) {
+                restored = true;
+            }
+        }
+
+        // 2. Fallback to localStorage if not restored and local data exists
+        if (!restored && savedCombatJson) {
             try {
                 const savedObj = JSON.parse(savedCombatJson);
                 //Если это был PvP бой, нужно снять лок и с цели (чтобы цель не повисла в бою)
@@ -363,11 +379,12 @@ export class Game {
             } catch (e) {}
         }
         
-        //Отменяем бой при F5 и очищаем свой лок
-        localStorage.removeItem(`sw_active_combat_${this.player.name}`);
-        localStorage.removeItem(`sw_pvp_combat_lock_${this.player.name}`);
-        
-        this.screenManager.showScreen('maps-screen');
+        //Отменяем бой при F5 и очищаем свой лок IF not restored
+        if (!restored) {
+            localStorage.removeItem(`sw_active_combat_${this.player.name}`);
+            localStorage.removeItem(`sw_pvp_combat_lock_${this.player.name}`);
+            this.screenManager.showScreen('maps-screen');
+        }
 
         //Проверяем активное наказание за побег
         const fleePenalty = localStorage.getItem(`sw_pvp_flee_penalty_${this.player.name}`);

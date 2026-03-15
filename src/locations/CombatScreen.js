@@ -137,6 +137,10 @@ export class CombatScreen {
         //ВАЖНО: Всегда снимаем PvP замок при завершении любого боя (на всякий случай)
         localStorage.removeItem(`sw_pvp_combat_lock_${this.player.name}`);
         
+        // Clear server-side combat state
+        this.player.combatState = null;
+        this.player.save();
+        
         //Если это был пвп бой - снять замок и цели, если мы знаем ее имя.
         if (this.combatType === 'pvp' && this.monster) {
             const targetName = this.monster.id && this.monster.id.startsWith('real_') ? this.monster.id.slice(5) : this.monster.name;
@@ -167,6 +171,8 @@ export class CombatScreen {
     saveCombatState() {
         if (!this.monster || this.monster.hp <= 0 || this.player.hp <= 0) {
             localStorage.removeItem(`sw_active_combat_${this.player.name}`);
+            this.player.combatState = null;
+            this.player.save();
             return;
         }
         
@@ -194,6 +200,68 @@ export class CombatScreen {
             lastTurnTime: this.lastTurnTime
         };
         try { localStorage.setItem(`sw_active_combat_${this.player.name}`, JSON.stringify(state)); } catch(e) {}
+        
+        // Persist to server
+        this.player.combatState = state;
+        this.player.save();
+    }
+
+    restoreCombat(state) {
+        if (!state) return false;
+
+        // Reconstruct monster-like object
+        const monster = {
+            id: state.monsterId,
+            name: state.monsterName,
+            maxHp: state.monsterMaxHp,
+            hp: state.monsterHp,
+            attack: state.monsterAttack,
+            defense: state.monsterDefense,
+            xpReward: state.monsterXpTarget,
+            moneyReward: state.monsterMoneyTarget,
+            lootTable: state.monsterLootTarget,
+            level: state.monsterLevel,
+            equipment: state.monsterEquipment,
+            canUseForce: state.monsterCanUseForce,
+            activeForceSkill: state.monsterActiveForceSkill,
+            forcePoints: state.monsterForcePoints,
+            alignmentShiftMsg: state.monsterAlignMsg,
+            _calculatedShift: state.monsterCalcShift,
+            agility: state.monsterAgility,
+            isDead: function() { return this.hp <= 0; },
+            takeDamage: function(amount) {
+                this.hp = Math.max(0, this.hp - amount);
+                return amount;
+            },
+            getRewards: function() {
+                return {
+                    xp: this.xpReward,
+                    money: this.moneyReward,
+                    items: this.lootTable, // Simplified logic, looting usually happens on kill generation
+                    alignmentShiftMsg: this.alignmentShiftMsg
+                };
+            }
+        };
+
+        // We need to inject `onCombatEndImmediate` dummy if needed, or handle it in processVictory
+        
+        this.startCombat(monster, (result, rewards) => {
+            // Default onCombatEnd callback
+            this.screenManager.showScreen('maps-screen');
+            if (window.gameInstance) window.gameInstance.mapScreen.render();
+        }, state.combatType);
+
+        // Force state update from saved data (startCombat might reset some things or use LS)
+        // Since startCombat reads LS, we should ensure LS is populated or we manually override
+        // But if we are restoring from DB, LS might be empty.
+        // Let's manually override the logic state to match `state`
+        this.isPlayerTurn = state.isPlayerTurn;
+        this.lastTurnTime = state.lastTurnTime || Date.now();
+        this.player.hp = state.playerHp;
+        
+        // Trigger render to show correct state
+        this.render();
+        return true;
     }
 
     render() {
