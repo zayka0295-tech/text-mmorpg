@@ -27,7 +27,69 @@ export class ShipMarketScreen {
         this.render();
     }
 
+    _initListeners() {
+        if (this._listenersInitialized) return;
+        this._listenersInitialized = true;
+
+        document.addEventListener('network:market_result', (e) => {
+            const { ok, operation, error, profile, itemId } = e.detail;
+            if (ok) {
+                // Update local player state from server profile
+                if (profile) {
+                    this.player.money = profile.money;
+                    // For ships, we might need to refresh ship data from profile
+                    // But 'market_buy' updates inventory usually. 
+                    // Ships are special. 'buyItem' adds to inventory.
+                    // But ShipMarket treats ship as property 'player.ship'.
+                    // If server 'buyItem' adds to inventory, we need to move it to 'player.ship' slot locally?
+                    // OR we change server to handle ship buying specifically?
+                    // 'market_buy' uses 'buyItem' which adds to 'inventory_data.inventory'.
+                    // So we effectively buy a ship ITEM into inventory.
+                    // We need to equip it?
+                    // Current client logic was: money -= cost; player.ship = { id: ... }
+                    
+                    // If we use market_buy, we get the item in inventory.
+                    // Then we can "equip" it.
+                    // Or we just update player.ship based on what happened?
+                    // The server buyItem DOES NOT set player.ship.
+                    // So buying a ship via 'market_buy' just gives you the ITEM.
+                    // We need to manually 'equip' it or handle it here.
+                    
+                    // Let's assume for now buying via market gives item, and we set it as ship if we want?
+                    // Or we keep client-side 'equip' logic after buy?
+                    
+                    // Wait, if server just adds to inventory, we are fine.
+                    // But the UI expects to OWN the ship.
+                    
+                    if (ITEMS[itemId] && ITEMS[itemId].type === 'ship') {
+                        // Auto-equip ship if we don't have one or just bought it to replace?
+                        // Simplified: Set player.ship to this new item.
+                        this.player.ship = { id: itemId, hp: ITEMS[itemId].stats?.maxHp || 100 };
+                        this.player.save(); 
+                        // Saving here might overwrite server inventory if not careful, 
+                        // but player.save() sends current state.
+                        // Ideally we use a specific 'equip_ship' command.
+                        // But for now, client-side equip after verified purchase is better than nothing.
+                    }
+                    
+                    this.player._emit('money-changed');
+                }
+
+                const item = ITEMS[itemId];
+                const itemName = item ? item.name : 'Корабль';
+                
+                if (operation === 'buy') {
+                    Modals.alert('Поздравляем!', `Вы приобрели <b>${itemName}</b>!`);
+                    this.render();
+                }
+            } else {
+                Modals.alert('Ошибка', error || 'Операция не удалась');
+            }
+        });
+    }
+
     render() {
+        this._initListeners();
         const validShip = this._getValidShip();
         let html = `<div class="market-tabs">
                 <div style="display:flex; align-items:center; gap:8px; color:#70c4c4; font-weight:700; font-size:13px; letter-spacing:1px; padding: 0 4px;">
@@ -145,11 +207,11 @@ export class ShipMarketScreen {
 
                 const price = parseInt(target.getAttribute('data-price'));
                 const shipId = target.getAttribute('data-item');
-                const ship = ITEMS[shipId];
+                // const ship = ITEMS[shipId]; // Unused
 
                 Modals.confirm(
                     'Продажа корабля',
-                    `Вы уверены, что хотите продать <b>${(ship?.name || '')}</b> по <span style="color:#f1c40f">${price.toLocaleString()}кр.</span>?`,
+                    `Вы уверены, что хотите продать <b>${(ITEMS[shipId]?.name || '')}</b> по <span style="color:#f1c40f">${price.toLocaleString()}кр.</span>?`,
                     'Продать',
                     'Отмена',
                     () => {
@@ -185,14 +247,14 @@ export class ShipMarketScreen {
                     'Купить 🚀',
                     'Отмена',
                     () => {
-                        this.player.money -= cost;
-                        this.player.ship = { 
-                            id: shipId, 
-                            hp: ship.stats?.maxHp || 100 
-                        };
-                        this.player.save();
-                        this.render();
-                        Modals.alert('Поздравляем!', `Вы приобрели корабль <b>${ship.name}</b>! Теперь перелеты между планетами для вас бесплатны.`);
+                        if (this.player.money < cost) {
+                            Modals.alert('Ошибка', 'Не хватает кредитов!');
+                            return;
+                        }
+                        
+                        if (this.player.networkMgr) {
+                            this.player.networkMgr.send('market_buy', { itemId: shipId, amount: 1 });
+                        }
                     }
                 );
             });
