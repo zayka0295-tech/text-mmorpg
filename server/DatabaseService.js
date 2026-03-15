@@ -51,10 +51,12 @@ class DatabaseService {
         try {
             const salt = await bcrypt.genSalt(10);
             const passwordHash = await bcrypt.hash(password, salt);
+            const sessionToken = uuidv4();
 
             const profile = {
                 username: username,
                 password_hash: passwordHash,
+                session_token: sessionToken,
                 class_name: className || 'Контрабандист',
                 race: race || 'Человек',
                 title: className || 'Контрабандист', // Title defaults to class name
@@ -79,7 +81,10 @@ class DatabaseService {
                 return { error: error.message };
             }
 
-            return { data: this._mapDbProfileToGameData(data), error: null };
+            const gameData = this._mapDbProfileToGameData(data);
+            gameData.sessionToken = sessionToken; // Ensure token is passed back
+
+            return { data: gameData, error: null };
         } catch (error) {
             this._logDbError('registerUser.catch', error, { username });
             return { error: 'Internal registration error' };

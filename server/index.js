@@ -214,7 +214,7 @@ async function handleMessage(ws, message, metadata) {
                     metadata.dbId = profile.id;
                     clients.set(ws, metadata);
                     
-                    ws.send(JSON.stringify({ type: 'register_success', profile }));
+                    ws.send(JSON.stringify({ type: 'register_success', profile, token: profile.sessionToken }));
                     broadcast({
                         type: 'player_joined',
                         id: getStablePlayerId(metadata),
