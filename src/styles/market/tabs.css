@@ -1,0 +1,41 @@
+/* market/tabs.css - Market Tabs */
+
+.market-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #1a1a1a;
+  border-bottom: 1px solid #2a2a2a;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.market-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.m-tab {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  color: #a0a0a0;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.m-tab:hover {
+  border-color: #70c4c4;
+  color: #70c4c4;
+}
+
+.m-tab.active {
+  background: linear-gradient(135deg, #0d3b4a, #1a5c6e);
+  border-color: #70c4c4;
+  color: #70c4c4;
+}

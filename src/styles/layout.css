@@ -1,0 +1,116 @@
+#game-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    width: 100vw;
+    max-width: 600px;
+    margin: 0 auto;
+    background-color: var(--bg-dark);
+    position: relative;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+#main-content {
+    flex: 1;
+    overflow-y: auto;
+    /* Звичайний скрол — кожен screen рендерить свій контент */
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    position: relative;
+}
+
+/* Base screen styles */
+.screen {
+    display: none;
+    width: 100%;
+}
+
+.screen.active {
+    display: block;
+}
+
+.screen.hidden {
+    display: none !important;
+}
+/* --- MODALS GLOBAL --- */
+.global-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.global-modal-box {
+    background: #1a1a1a;
+    border: 3px solid #00bcd4;
+    border-radius: 8px;
+    padding: 24px;
+    width: 90%;
+    max-width: 360px;
+    box-shadow: 0 0 30px rgba(0, 188, 212, 0.4);
+    transform: scale(0.9);
+    opacity: 0;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.global-modal-box.show {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.global-modal-title {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 900;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    text-align: center;
+    border-bottom: 2px solid #333;
+    padding-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+.global-modal-text {
+    color: #ccc;
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.global-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.global-modal-btn {
+    flex: 1;
+    padding: 12px 0;
+    border: none;
+    border-radius: 4px;
+    font-weight: 900;
+    font-size: 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.global-modal-btn.btn-cancel {
+    background: #333;
+    color: #fff;
+    border: 2px solid #555;
+}
+
+.global-modal-btn.btn-confirm {
+    background: #00bcd4;
+    color: #000;
+    border: 2px solid #0096a9;
+}

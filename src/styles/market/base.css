@@ -1,0 +1,55 @@
+/* market/base.css - Core Market Screen Styles */
+
+#market-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #111;
+  overflow: hidden;
+}
+
+/* --- Footer with close button --- */
+.market-footer {
+    padding: 10px 12px;
+    background: #1a1a1a;
+    border-top: 1px solid #2a2a2a;
+    flex-shrink: 0;
+}
+
+.market-close-btn {
+    width: 100%;
+    background: rgba(231, 76, 60, 0.15);
+    border: 1px solid #e74c3c;
+    color: #e74c3c;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: background 0.2s;
+}
+
+.market-close-btn:hover {
+    background: rgba(231, 76, 60, 0.35);
+}
+
+/* --- Cards Area --- */
+.market-cards-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.market-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+/* --- MOBILE RESPONSIVE --- */
+@media (max-width: 360px) {
+    .market-cards-area {
+        padding: 8px;
+    }
+}

@@ -1,0 +1,314 @@
+/* content.css - Reduced to core layout and specific screens like Inventory/Market */
+
+/* ==========================================
+   INVENTORY SCREEN STYLES
+   ========================================== */
+#inventory-screen {
+    background-color: #f4f6f8;
+    color: #333;
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: 100%;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+#inventory-screen.active {
+    display: block;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 900;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    border-bottom: 3px solid #000;
+    padding-bottom: 5px;
+}
+
+.equipment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.equip-slot {
+    background: #fff;
+    border: 3px solid #000;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.slot-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.slot-item {
+    font-weight: 900;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.slot-item.empty {
+    color: #ccc;
+    font-weight: 700;
+}
+
+.item-name {
+    margin-bottom: 5px;
+}
+
+.btn-unequip {
+    background: #e74c3c;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+    width: 100%;
+    margin-top: 5px;
+}
+
+.backpack-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 80px;
+    /* spacing for bottom nav */
+}
+
+.empty-backpack {
+    font-style: italic;
+    color: #888;
+    text-align: center;
+    padding: 20px;
+}
+
+.backpack-item {
+    background: #fff;
+    border: 3px solid #000;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.item-info {
+    flex: 1;
+    padding-right: 15px;
+}
+
+.item-info .item-name {
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.item-info .item-desc {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.3;
+    margin-bottom: 5px;
+}
+
+.item-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.btn-inventory {
+    background: #000;
+    color: #fff;
+    border: none;
+    padding: 10px 15px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.btn-inventory.btn-use {
+    background: #27ae60;
+}
+
+.btn-inventory:active {
+    transform: translateY(2px);
+}
+
+
+   MARKET SCREEN STYLES (MOCKUP DESIGN)
+   ========================================== */
+#market-screen {
+    background: #1e1e1e;
+    /* Темно-сірий фон екрану позаду (відповідає фону гри) */
+    padding: 15px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.market-nav-tabs {
+    display: flex;
+    background: transparent;
+    margin-bottom: 10px;
+}
+
+.m-tab {
+    background: #fff;
+    border: 4px solid #000;
+    border-right: none;
+    padding: 12px 20px;
+    font-size: 16px;
+    color: #000;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.m-tab.active {
+    background: #e0e0e0;
+}
+
+/* Зовнішня рамка для таблиці */
+.market-grid-container {
+    border: 4px solid #000;
+    background: #fff;
+    flex: 1;
+    /* займає залишок екрану */
+    overflow-y: auto;
+    padding: 5px;
+    /* зазор між зовнішньою і внутрішньою рамкою як на малюнку */
+}
+
+.market-table {
+    display: flex;
+    flex-direction: column;
+    border: 3px solid #000;
+    /* Внутрішня рамка всієї таблиці */
+}
+
+.table-header-row {
+    display: flex;
+    border-bottom: 4px solid #000;
+    background: #fff;
+    min-height: 40px !important;
+}
+
+.table-header-row .market-cell-icon,
+.table-header-row .market-cell-desc {
+    font-weight: 900;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    color: #000;
+}
+
+.table-header-row .market-cell-icon {
+    justify-content: center;
+}
+
+.table-header-row .market-cell-desc {
+    justify-content: flex-start;
+}
+
+.market-row {
+    display: flex;
+    border-bottom: 3px solid #000;
+    min-height: 110px;
+    background: #fff;
+}
+
+.market-row:last-child {
+    border-bottom: none;
+}
+
+.market-cell-icon {
+    width: 120px;
+    border-right: 3px solid #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #fff;
+    flex-shrink: 0;
+}
+
+.market-cell-icon ion-icon {
+    font-size: 40px;
+    color: #000;
+}
+
+.market-cell-desc {
+    flex: 1;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #fff;
+}
+
+.market-cell-desc h4 {
+    margin: 0 0 5px 0;
+    font-size: 18px;
+    color: #000;
+    font-weight: bold;
+}
+
+.market-cell-desc p {
+    margin: 0;
+    font-size: 14px;
+    color: #333;
+    flex-grow: 1;
+}
+
+.row-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.item-stats {
+    color: #000;
+    font-weight: bold;
+    background: #eaeaea;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+/* Кнопки всередині рядка */
+.btn-buy,
+.btn-sell {
+    background: #000;
+    color: #fff;
+    border: none;
+    padding: 8px 15px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+    text-transform: uppercase;
+}
+
+.btn-buy:active,
+.btn-sell:active {
+    background: #444;
+}
+
+.sell-row {
+    background: #fdfdfd;
+}

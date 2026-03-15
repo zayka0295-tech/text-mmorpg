@@ -1,0 +1,368 @@
+#auth-screen.active {
+    display: flex;
+}
+
+#auth-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0a 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+#auth-screen::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('https://www.transparenttextures.com/patterns/stardust.png');
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.auth-box {
+    width: 90%;
+    max-width: 400px;
+    background: rgba(20, 20, 20, 0.95);
+    border: 2px solid #333;
+    border-radius: 12px;
+    padding: 40px 30px;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 188, 212, 0.1);
+    position: relative;
+    z-index: 2;
+    text-align: center;
+}
+
+.auth-logo {
+    margin-bottom: 40px;
+}
+
+.logo-orb {
+    width: 60px;
+    height: 60px;
+    background: #00bcd4;
+    border-radius: 50%;
+    margin: 0 auto 15px;
+    box-shadow: 0 0 20px #00bcd4;
+    position: relative;
+    animation: pulse 2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 0 20px #00bcd4; }
+    50% { transform: scale(1.1); box-shadow: 0 0 40px #00bcd4; }
+    100% { transform: scale(1); box-shadow: 0 0 20px #00bcd4; }
+}
+
+.auth-logo h1 {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: #fff;
+    margin: 0;
+    text-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
+}
+
+.auth-logo p {
+    font-size: 12px;
+    color: #00bcd4;
+    letter-spacing: 2px;
+    margin-top: 5px;
+    font-weight: 700;
+}
+
+.auth-form h2 {
+    font-size: 18px;
+    color: #fff;
+    margin-bottom: 25px;
+    letter-spacing: 2px;
+}
+
+.input-group {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.input-group label {
+    display: block;
+    color: #888;
+    font-size: 11px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+.input-group input {
+    width: 100%;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 12px 15px;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #00bcd4;
+    box-shadow: 0 0 10px rgba(0, 188, 212, 0.2);
+}
+
+.auth-btn {
+    width: 100%;
+    padding: 14px;
+    background: #00bcd4;
+    border: none;
+    border-radius: 4px;
+    color: #000;
+    font-weight: 900;
+    font-size: 14px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 20px;
+}
+
+.auth-btn:hover {
+    background: #00e5ff;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 188, 212, 0.4);
+}
+
+.auth-btn.register {
+    background: #e67e22;
+}
+
+.auth-btn.register:hover {
+    background: #f39c12;
+    box-shadow: 0 5px 15px rgba(230, 126, 34, 0.4);
+}
+
+.auth-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #333;
+    color: #888;
+}
+
+.auth-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border-color: #444;
+}
+
+.reg-step {
+    display: none;
+}
+
+.reg-step.active {
+    display: block;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.step-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.auth-toggle {
+    font-size: 13px;
+    color: #666;
+}
+
+.auth-toggle a {
+    color: #00bcd4;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.auth-toggle a:hover {
+    text-decoration: underline;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* RACE SELECTOR */
+.race-selector-container {
+    margin: 30px 0;
+    text-align: center;
+}
+
+.race-selector-container label {
+    display: block;
+    color: #00bcd4;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+}
+
+.race-slider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    height: 120px;
+}
+
+.race-viewport {
+    width: 140px;
+    height: 140px;
+    overflow: hidden;
+    position: relative;
+    border: 2px solid #333;
+    background: #0a0a0a;
+    border-radius: 8px;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.race-track {
+    display: flex;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 100%;
+}
+
+.race-card {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    user-select: none;
+}
+
+.race-card-placeholder {
+    width: 60px;
+    height: 60px;
+    border: 1px dashed #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.race-card-name {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.race-nav {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    color: #00bcd4;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 20px;
+    z-index: 5;
+}
+
+.race-nav:hover {
+    background: #00bcd4;
+    color: #000;
+    border-color: #00bcd4;
+}
+
+.race-name {
+    margin-top: 15px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(0, 188, 212, 0.3);
+}
+
+/* ACCOUNTS LIST */
+.accounts-list {
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.accounts-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.accounts-list::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
+
+.accounts-list::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 2px;
+}
+
+.account-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    padding: 10px 15px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.account-item:hover {
+    background: rgba(0, 188, 212, 0.1);
+    border-color: #00bcd4;
+}
+
+.account-info {
+    text-align: left;
+}
+
+.account-name {
+    display: block;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.account-meta {
+    display: block;
+    color: #666;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.account-icon {
+    color: #00bcd4;
+    font-size: 18px;
+}
+
+

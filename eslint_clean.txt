@@ -1,0 +1,36 @@
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\engine\System\PvPManager.js
+LINE: 286 no-unused-vars ~ 'result' is defined but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\locations\CombatScreen.js
+LINE: 371 no-unused-vars ~ 'skipMonsterTurn' is assigned a value but never used.
+LINE: 550 no-unused-vars ~ 'usedForceThisTurn' is assigned a value but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\locations\InventoryScreen.js
+LINE: 1 no-unused-vars ~ 'ITEM_TYPES' is defined but never used.
+LINE: 1 no-unused-vars ~ 'formatStats' is defined but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\locations\JobScreen.js
+LINE: 96 no-unused-vars ~ 'key' is assigned a value but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\locations\MapScreen.js
+LINE: 13 no-unused-vars ~ 'Modals' is defined but never used.
+LINE: 15 no-unused-vars ~ 'BACK_LINKS' is defined but never used.
+LINE: 40 no-unused-vars ~ 'setSearching' is assigned a value but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\locations\MarketScreen.js
+LINE: 1 no-unused-vars ~ 'formatStats' is defined but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\locations\ProfileScreen.js
+LINE: 63 no-unused-vars ~ 'avatarHtml' is assigned a value but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\locations\QuestsScreen.js
+LINE: 177 no-unused-vars ~ 'id' is defined but never used.
+LINE: 190 no-unused-vars ~ 'id' is defined but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\locations\ShipMarketScreen.js
+LINE: 1 no-unused-vars ~ 'formatStats' is defined but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\main.js
+LINE: 18 no-unused-vars ~ 'Monster' is defined but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\ui\components\EquipmentView.js
+LINE: 1 no-unused-vars ~ 'ITEM_TYPES' is defined but never used.
+LINE: 100 no-unused-vars ~ 'e' is defined but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\ui\components\ZonePlayers.js
+LINE: 19 no-unused-vars ~ 'canSeeInSafeZone' is assigned a value but never used.
+FILE: C:\Users\zayka\.gemini\antigravity\scratch\text-mmorpg\src\ui\PlayerModal.js
+LINE: 2 no-unused-vars ~ 'Notifications' is defined but never used.
+LINE: 3 no-unused-vars ~ 'Monster' is defined but never used.
+LINE: 8 no-unused-vars ~ 'SAFE_ZONE_WARN_KEY' is assigned a value but never used.
+LINE: 94 no-unused-vars ~ 'fmtMoney' is assigned a value but never used.
+LINE: 161 no-unused-vars ~ 'hpColor' is assigned a value but never used.

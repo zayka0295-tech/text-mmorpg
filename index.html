@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#111111">
+    <title>Text MMORPG</title>
+    <link rel="stylesheet" href="src/styles/vars.css">
+    <link rel="stylesheet" href="src/styles/layout.css">
+    <link rel="stylesheet" href="src/styles/auth.css">
+    <link rel="stylesheet" href="src/styles/topbar.css?v=20">
+    <link rel="stylesheet" href="src/styles/content.css?v=20">
+    <link rel="stylesheet" href="src/styles/maps/base.css?v=20">
+    <link rel="stylesheet" href="src/styles/maps/planets.css?v=20">
+    <link rel="stylesheet" href="src/styles/maps/spaceport.css?v=20">
+    <link rel="stylesheet" href="src/styles/maps/players.css?v=20">
+    <link rel="stylesheet" href="src/styles/combat.css?v=20">
+    <link rel="stylesheet" href="src/styles/modals-misc.css?v=20">
+    <link rel="stylesheet" href="src/styles/bottomnav.css">
+    <link rel="stylesheet" href="src/styles/notifications.css">
+    <link rel="stylesheet" href="src/styles/settings.css">
+    <link rel="stylesheet" href="src/styles/chat.css">
+    <link rel="stylesheet" href="src/styles/profile.css?v=20">
+    <link rel="stylesheet" href="src/styles/player_modal/base.css?v=20">
+    <link rel="stylesheet" href="src/styles/player_modal/profile.css?v=20">
+    <link rel="stylesheet" href="src/styles/player_modal/stats.css?v=20">
+    <link rel="stylesheet" href="src/styles/player_modal/actions.css?v=20">
+    <link href="src/styles/bank.css" rel="stylesheet">
+    <link href="src/styles/job.css" rel="stylesheet">
+    <link rel="stylesheet" href="src/styles/inventory/base.css?v=20">
+    <link rel="stylesheet" href="src/styles/inventory/tabs.css?v=20">
+    <link rel="stylesheet" href="src/styles/inventory/equipment.css?v=20">
+    <link rel="stylesheet" href="src/styles/inventory/list.css?v=20">
+    <link rel="stylesheet" href="src/styles/inventory/details.css?v=20">
+    <link rel="stylesheet" href="src/styles/market/base.css?v=20">
+    <link rel="stylesheet" href="src/styles/market/tabs.css?v=20">
+    <link rel="stylesheet" href="src/styles/market/cards.css?v=20">
+    <link rel="stylesheet" href="src/styles/market/ships.css?v=20">
+    <link href="src/styles/profile_ship.css?v=20" rel="stylesheet">
+    <!-- Mobile responsive overrides — always load last -->
+    <link href="src/styles/mobile.css" rel="stylesheet">
+    <!-- Ionicons for bottom nav icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script>
+      window.addEventListener('error', function(e) {
+        var errDiv = document.createElement('div');
+        errDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;z-index:999999;font-size:12px;padding:5px;';
+        errDiv.innerText = e.message + '\n' + (e.error ? e.error.stack : '');
+        document.body.appendChild(errDiv);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var errDiv = document.createElement('div');
+        errDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:purple;color:white;z-index:999999;font-size:12px;padding:5px;';
+        errDiv.innerText = 'Promise Unhandled: ' + e.reason;
+        document.body.appendChild(errDiv);
+      });
+    </script>
+</head>
+
+<body>
+    <div id="game-container">
+        <!-- AUTH SCREEN (Login/Register) -->
+        <div id="auth-screen" class="screen active">
+            <div class="auth-box">
+                <div class="auth-logo">
+                    <div class="logo-orb"></div>
+                    <h1>ЗВЕЗДНЫЕ ВОЙНЫ</h1>
+                    <p>ЛЕГЕНДЫ</p>
+                </div>
+
+                <div class="auth-form" id="login-form">
+                    <h2>ВХОД</h2>
+                    <div id="existing-accounts-list" class="accounts-list hidden">
+                        <!-- Будет заполнено через JS -->
+                    </div>
+                    <div class="input-group">
+                        <label>Имя персонажа</label>
+                        <input type="text" id="login-username" placeholder="Введите имя..." autocomplete="off">
+                    </div>
+                    <button id="btn-login" class="auth-btn">ВОЙТИ</button>
+                    <p class="auth-toggle">Нет аккаунта? <a href="#" id="to-register">Создать</a></p>
+                </div>
+
+                <div class="auth-form hidden" id="register-form">
+                    <h2>РЕГИСТРАЦИЯ</h2>
+                    
+                    <!-- STEP 1: NICKNAME -->
+                    <div class="reg-step active" id="reg-step-1">
+                        <div class="input-group">
+                            <label>Имя персонажа</label>
+                            <input type="text" id="register-username" placeholder="Придумайте имя..." autocomplete="off">
+                        </div>
+                        <button class="auth-btn btn-next-step" data-next="2">ДАЛЕЕ</button>
+                    </div>
+
+                    <!-- STEP 2: RACE -->
+                    <div class="reg-step" id="reg-step-2">
+                        <div class="race-selector-container">
+                            <label>ВЫБОР РАСЫ</label>
+                            <div class="race-slider" id="race-slider">
+                                <button class="race-nav prev" id="race-prev">
+                                    <ion-icon name="chevron-back-outline"></ion-icon>
+                                </button>
+                                <div class="race-viewport">
+                                    <div class="race-track" id="race-track"></div>
+                                </div>
+                                <button class="race-nav next" id="race-next">
+                                    <ion-icon name="chevron-forward-outline"></ion-icon>
+                                </button>
+                            </div>
+                            <div class="race-name" id="selected-race-name">Люди</div>
+                        </div>
+                        <div class="step-actions">
+                            <button class="auth-btn secondary btn-prev-step" data-prev="1">НАЗАД</button>
+                            <button class="auth-btn btn-next-step" data-next="3">ДАЛЕЕ</button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: CLASS -->
+                    <div class="reg-step" id="reg-step-3">
+                        <div class="race-selector-container">
+                            <label>ВЫБОР КЛАССА</label>
+                            <div class="race-slider" id="class-slider">
+                                <button class="race-nav prev" id="class-prev">
+                                    <ion-icon name="chevron-back-outline"></ion-icon>
+                                </button>
+                                <div class="race-viewport">
+                                    <div class="race-track" id="class-track"></div>
+                                </div>
+                                <button class="race-nav next" id="class-next">
+                                    <ion-icon name="chevron-forward-outline"></ion-icon>
+                                </button>
+                            </div>
+                            <div class="race-name" id="selected-class-name">Контрабандист</div>
+                        </div>
+                        <div class="step-actions">
+                            <button class="auth-btn secondary btn-prev-step" data-prev="2">НАЗАД</button>
+                            <button id="btn-register" class="auth-btn register">СОЗДАТЬ ГЕРОЯ</button>
+                        </div>
+                    </div>
+
+                    <p class="auth-toggle">Уже есть аккаунт? <a href="#" id="to-login">Войти</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOP BAR -->
+        <header id="top-bar" class="hidden">
+            <div class="level-badge">
+                <div class="level-hexagon">
+                    <span id="player-level">100</span>
+                </div>
+            </div>
+
+            <div class="stats-container">
+                <div class="progress-bar-container">
+                    <div class="progress-fill xp-fill" id="xp-bar" style="width: 0%;"></div>
+                </div>
+                <div class="progress-bar-container" style="margin-bottom: 4px;">
+                    <div class="progress-fill hp-fill" id="hp-bar" style="width: 100%;"></div>
+                </div>
+                <div class="progress-bar-container" id="force-bar-container" style="margin-bottom: 4px; display: none;">
+                    <div class="progress-fill force-fill" id="force-bar" style="width: 100%; background-color: #3498db;"></div>
+                </div>
+
+                <div class="xp-text">
+                    <span id="current-xp">466 011</span> / <span id="max-xp">12 679 146</span>
+                </div>
+
+                <div class="currency-row">
+                    <span class="btc"><span id="btc-amount">611 922</span> КР</span>
+                    <span class="units"><span id="datarii-amount">0</span> ₵</span>
+                </div>
+            </div>
+
+            <button class="settings-btn">
+                <ion-icon name="settings-outline"></ion-icon>
+            </button>
+        </header>
+
+
+
+        <!-- MAIN CONTENT -->
+        <main id="main-content" class="hidden">
+            <div id="maps-screen" class="screen active">
+                <h1>MAPS</h1>
+            </div>
+            <div id="combat-screen" class="screen hidden">
+                <!-- Вміст генеруватиметься через JS -->
+            </div>
+            <div id="market-screen" class="screen hidden">
+                <!-- Вміст генеруватиметься через JS -->
+            </div>
+            <div id="ship-market-screen" class="screen hidden">
+                <!-- Вміст генеруватиметься через ShipMarketScreen.js -->
+            </div>
+            <div id="inventory-screen" class="screen hidden">
+                <h1>ИНВЕНТАРЬ</h1>
+            </div>
+            <div id="quests-screen" class="screen hidden">
+                <!-- Вміст генеруватиметься через JS -->
+            </div>
+            <div id="chat-screen" class="screen hidden">
+                <!-- Вміст генеруватиметься через ChatScreen.js -->
+            </div>
+            <div id="profile-screen" class="screen hidden">
+                <!-- Вміст генеруватиметься через ProfileScreen.js -->
+            </div>
+            <div id="bank-screen" class="screen hidden"></div>
+            <div id="job-screen" class="screen hidden">
+                <!-- Вміст генеруватиметься через JobScreen.js -->
+            </div>
+        </main>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav id="bottom-nav" class="hidden">
+            <button class="nav-btn active" data-target="maps-screen">
+                <ion-icon name="planet-outline"></ion-icon>
+                <span>ЛОКАЦИИ</span>
+            </button>
+            <button class="nav-btn" data-target="inventory-screen">
+                <ion-icon name="briefcase-outline"></ion-icon>
+                <span>ИНВЕНТАРЬ</span>
+            </button>
+            <button class="nav-btn" data-target="quests-screen">
+                <ion-icon name="document-text-outline"></ion-icon>
+                <span>ЗАДАНИЯ</span>
+            </button>
+            <button class="nav-btn" data-target="chat-screen">
+                <div class="icon-wrapper">
+                    <ion-icon name="chatbubble-outline"></ion-icon>
+                    <span class="notification-dot"></span>
+                </div>
+                <span>ЧАТ</span>
+            </button>
+            <button class="nav-btn" data-target="profile-screen">
+                <ion-icon name="person-outline"></ion-icon>
+                <span>ПРОФИЛЬ</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2>⚙️ НАСТРОЙКИ</h2>
+                <button id="settings-close" class="modal-close-btn">✕</button>
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-info-row">
+                    <span class="modal-label">💾 Последнее сохранение:</span>
+                    <span id="settings-last-save" class="modal-value">—</span>
+                </div>
+                <div class="modal-info-row">
+                    <span class="modal-label">🔄 Сброс заданий через:</span>
+                    <span id="settings-quest-timer" class="modal-value">—</span>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <button id="btn-manual-save" class="modal-btn save-btn">Сохранить сейчас<ion-icon name="save-outline"></ion-icon>
+                </button>
+                <button id="btn-toggle-audio" class="modal-btn">
+                    <span id="audio-btn-text">Включить звук</span>
+                    <ion-icon name="volume-medium-outline" id="audio-icon"></ion-icon>
+                </button>
+                <button id="btn-fullscreen" class="modal-btn fullscreen-btn">Играть на весь экран<ion-icon name="expand-outline"></ion-icon>
+                </button>
+            <div id="dev-panel-section" class="modal-section" style="border-top: 1px solid #333; padding-top: 15px; margin-top: 15px; display: none;">
+                <h3 style="color: #e67e22; margin-bottom: 10px; font-size: 14px; text-align: center;">🛠️ ПАНЕЛЬ РАЗРАБОТЧИКА</h3>
+                
+                <div class="modal-info-row" style="margin-bottom: 8px;">
+                    <span class="modal-label">Уровень:</span>
+                    <input type="number" id="dev-input-level" min="1" max="100" style="width: 60px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 2px 5px;">
+                    <button id="btn-dev-level" class="modal-btn" style="padding: 4px 8px; font-size: 12px; margin: 0;">УСТАНОВИТЬ</button>
+                </div>
+
+                <div class="modal-info-row" style="margin-bottom: 8px;">
+                    <span class="modal-label">Кредиты:</span>
+                    <input type="number" id="dev-input-credits" min="0" style="width: 80px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 2px 5px;">
+                    <button id="btn-dev-credits" class="modal-btn" style="padding: 4px 8px; font-size: 12px; margin: 0;">ВСТАНОВИТИ</button>
+                </div>
+
+                <div class="modal-info-row" style="margin-bottom: 8px;">
+                    <span class="modal-label">Титул:</span>
+                    <select id="dev-input-title" style="width: 130px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 2px 5px;">
+                        <option value="Контрабандист">Контрабандист</option>
+                        <option value="Юнлинг" style="color:#3498db">Юнлинг</option>
+                        <option value="Падаван" style="color:#3498db">Падаван</option>
+                        <option value="Джедай" style="color:#3498db">Джедай</option>
+                        <option value="Претендент" style="color:#e74c3c">Претендент</option>
+                        <option value="Аколит" style="color:#e74c3c">Аколит</option>
+                        <option value="Ситх" style="color:#e74c3c">Ситх</option>
+                    </select>
+                    <button id="btn-dev-title" class="modal-btn" style="padding: 4px 8px; font-size: 12px; margin: 0;">ИЗМЕНИТЬ</button>
+                </div>
+
+                <div class="modal-info-row">
+                    <span class="modal-label">Предмет:</span>
+                    <select id="dev-input-item" style="width: 130px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 2px 5px;">
+                        <!-- Заполняется через JS -->
+                    </select>
+                    <button id="btn-dev-item" class="modal-btn" style="padding: 4px 8px; font-size: 12px; margin: 0;">ДОБАВИТЬ</button>
+                </div>
+
+                <div class="modal-info-row" style="margin-top: 8px;">
+                    <span class="modal-label">Сторона:</span>
+                    <input type="number" id="dev-input-alignment" value="100" style="width: 60px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; padding: 2px 5px;">
+                    <button id="btn-dev-light" class="modal-btn" style="padding: 4px 8px; font-size: 12px; margin: 0; background: #2980b9;">🌟 Свет</button>
+                    <button id="btn-dev-dark" class="modal-btn" style="padding: 4px 8px; font-size: 12px; margin: 0; background: #8e44ad;">🔴 Тьма</button>
+                </div>
+
+                <div class="modal-info-row" style="margin-top: 8px;">
+                    <span class="modal-label">PvP бан:</span>
+                    <button id="btn-dev-remove-ban" class="modal-btn" style="padding: 4px 8px; font-size: 12px; margin: 0; background: #c0392b;">❌ Снять бан побега</button>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <button id="btn-reset-save" class="modal-btn danger-btn">Сбросить прогресс<ion-icon name="trash-outline"></ion-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP SCRIPT -->
+    <script type="module" src="src/main.js?v=20"></script>
+</body>
+
+</html>

@@ -1,0 +1,265 @@
+/* === ACTION BUTTONS === */
+.pm-actions-card {
+    margin: 8px 12px 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.pm-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 14px 10px;
+    border: 2px solid #000;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 900;
+    transition: transform 0.15s, opacity 0.2s;
+}
+
+.pm-btn:hover:not(:disabled) {
+    transform: scale(1.03);
+}
+
+.pm-btn:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+.pm-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.pm-btn small {
+    font-size: 10px;
+    font-weight: 500;
+    opacity: 0.8;
+    text-align: center;
+}
+
+.pm-attack-btn {
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+    color: #fff;
+    border-color: #a93226;
+}
+
+.pm-rob-btn {
+    background: linear-gradient(135deg, #6c3483, #9b59b6);
+    color: #fff;
+    border-color: #5b2c6f;
+}
+
+/* === RESULT === */
+.pm-result {
+    margin: 8px 12px 0;
+    font-size: 12px;
+    font-weight: 700;
+    min-height: 20px;
+    text-align: center;
+    border-radius: 8px;
+    padding: 10px 14px;
+    transition: background 0.2s;
+}
+
+.pm-result-success {
+    background: rgba(46, 204, 113, 0.1);
+    color: #27ae60;
+    border: 1.5px solid rgba(46, 204, 113, 0.3);
+}
+
+.pm-result-error {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+    border: 1.5px solid rgba(231, 76, 60, 0.3);
+}
+
+/* === STATUS === */
+.pm-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 700;
+}
+
+.pm-status.online {
+    color: #27ae60;
+}
+
+.pm-status.offline {
+    color: #aaa;
+}
+
+.pm-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.pm-status.online .pm-status-dot {
+    box-shadow: 0 0 5px currentColor;
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* === REPUTATION SYSTEM === */
+.pm-rep-btn {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pm-rep-btn:hover {
+    background: #e0e0e0;
+    transform: scale(1.05);
+}
+
+.pm-rep-btn:active {
+    transform: scale(0.95);
+}
+
+.pm-rep-btn.active-up {
+    background: rgba(46, 204, 113, 0.2);
+    border-color: #27ae60;
+    box-shadow: 0 0 5px rgba(46, 204, 113, 0.4);
+}
+
+.pm-rep-btn.active-down {
+    background: rgba(231, 76, 60, 0.2);
+    border-color: #e74c3c;
+    box-shadow: 0 0 5px rgba(231, 76, 60, 0.4);
+}
+
+.pmodal-reputation-section {
+    background: #fff;
+    border: 1.5px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #555;
+}
+
+.rep-vote-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.btn-rep {
+    flex: 1;
+    padding: 8px;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    background: #f8f8f8;
+    color: #333;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-rep:hover {
+    background: #eee;
+}
+
+.btn-rep.plus:hover {
+    border-color: #27ae60;
+    color: #27ae60;
+}
+
+.btn-rep.minus:hover {
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+.rep-cooldown {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 6px;
+    font-style: italic;
+}
+
+.rep-title {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.rep-title.good {
+    background: rgba(39, 174, 96, 0.12);
+    color: #27ae60;
+}
+
+.rep-title.evil {
+    background: rgba(231, 76, 60, 0.12);
+    color: #e74c3c;
+}
+
+.rep-title.neutral {
+    background: rgba(0, 0, 0, 0.06);
+    color: #888;
+}
+
+/* Modal Action Buttons */
+.pmodal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.pmodal-btn {
+    padding: 12px 10px;
+    border: 2px solid #111;
+    border-radius: 8px;
+    font-weight: 900;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.2s;
+    text-align: center;
+}
+
+.pmodal-btn:hover:not([disabled]) {
+    transform: scale(1.03);
+}
+
+.pmodal-btn:active:not([disabled]) {
+    transform: scale(0.97);
+}
+
+.pmodal-btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pmodal-btn.action {
+    background: #111;
+    color: #f1c40f;
+}
+
+.pmodal-btn.danger {
+    background: #e74c3c;
+    color: #fff;
+    border-color: #c0392b;
+}
+
+.pm-result-msg {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-radius: 8px;
+    text-align: center;
+}

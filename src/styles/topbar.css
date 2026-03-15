@@ -1,0 +1,137 @@
+#top-bar {
+    height: var(--topbar-height);
+    background-color: var(--bg-dark);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-bottom: 2px solid var(--bg-black);
+    position: relative;
+    z-index: 10;
+}
+
+/* Level Hexagon Profile Badge */
+.level-badge {
+    position: relative;
+    width: 60px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.level-hexagon {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    background-color: var(--bg-darker);
+    border: 1px solid var(--accent-blue);
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text-white);
+}
+
+@keyframes pulse-level {
+    0% {
+        color: var(--text-white);
+        box-shadow: inset 0 0 5px rgba(81, 196, 193, 0);
+    }
+    50% {
+        color: #51c4c1;
+        box-shadow: inset 0 0 15px rgba(81, 196, 193, 0.8);
+    }
+    100% {
+        color: var(--text-white);
+        box-shadow: inset 0 0 5px rgba(81, 196, 193, 0);
+    }
+}
+
+.level-hexagon.can-level-up {
+    animation: pulse-level 1.5s infinite ease-in-out;
+    cursor: pointer;
+}
+
+/* Central stats area */
+.stats-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 10px;
+    height: 100%;
+}
+
+/* Progress Bars */
+.progress-bar-container {
+    height: 6px;
+    background-color: #2b2b2b;
+    border-radius: 3px;
+    margin-bottom: 6px;
+    width: 100%;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+.hp-fill {
+    background-color: var(--accent-red);
+}
+
+.xp-fill {
+    background-color: #51c4c1;
+    /* Cyan from screenshot */
+}
+
+/* XP Text underneath the bar (centered in screenshot) */
+.xp-text {
+    font-size: 12px;
+    color: var(--text-white);
+    text-align: center;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+/* Currency Row (BTC + Units) */
+.currency-row {
+    display: flex;
+    gap: 15px;
+    font-size: 11px;
+    font-weight: 700;
+    justify-content: flex-start;
+}
+
+.currency-row .btc {
+    color: #e6b87c;
+    /* Slight yellowish tint for credits if matching screenshot */
+}
+
+.currency-row .units {
+    color: #ffd166;
+    /* Slight yellowish tint */
+}
+
+/* Settings Button */
+.settings-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-gray);
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    transition: color 0.2s;
+}
+
+.settings-btn:hover {
+    color: var(--text-white);
+}

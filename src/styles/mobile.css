@@ -1,0 +1,214 @@
+/* ============================
+   MOBILE OPTIMIZATIONS
+   All responsive fixes for small screens (phones)
+   ============================ */
+
+/* ---- GLOBAL TOUCH TARGETS ---- */
+button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* ---- PREVENT HORIZONTAL OVERFLOW ---- */
+html, body {
+    overflow-x: hidden;
+}
+
+#game-container {
+    overflow-x: hidden;
+}
+
+/* ---- MARKET & SHIP MARKET — prevent overflow ---- */
+#market-screen,
+#ship-market-screen {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+}
+
+.market-cards-area,
+.market-cards-grid,
+.market-card {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+
+/* ---- LOCATION SCREEN ---- */
+@media (max-width: 380px) {
+    .planet-header-box {
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+
+    .location-title {
+        font-size: 14px;
+    }
+
+    .location-desc {
+        font-size: 10px;
+    }
+
+    .location-action-btn {
+        padding: 12px 8px;
+        font-size: 11px;
+    }
+
+    /* Top bar currency row on very small screens */
+    .currency-row {
+        gap: 8px;
+        font-size: 10px;
+    }
+
+    .xp-text {
+        font-size: 10px;
+    }
+}
+
+/* ---- TOP BAR ---- */
+@media (max-width: 360px) {
+    .level-hexagon {
+        width: 38px;
+        height: 38px;
+        font-size: 13px;
+    }
+
+    .stats-container {
+        padding: 0 6px;
+    }
+}
+
+/* ---- BOTTOM NAV ---- */
+@media (max-width: 360px) {
+    .nav-btn span {
+        font-size: 9px;
+    }
+
+    .nav-btn ion-icon {
+        font-size: 20px;
+    }
+}
+
+/* ---- SETTINGS MODAL ---- */
+@media (max-width: 400px) {
+    .modal-box {
+        border-radius: 8px;
+    }
+
+    .modal-btn {
+        font-size: 12px;
+        padding: 11px;
+    }
+}
+
+/* ---- INVENTORY ---- */
+@media (max-width: 400px) {
+    .inv-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ---- PROFILE SCREEN ---- */
+/* Avatar column is handled by flex layout, no overrides needed */
+
+/* ---- CHAT SCREEN ---- */
+@media (max-width: 380px) {
+    .chat-header {
+        padding: 10px 12px 8px;
+    }
+
+    .chat-msg-text {
+        font-size: 12px;
+    }
+
+    .chat-msg-author {
+        font-size: 12px;
+    }
+}
+
+/* ---- PLAYER MODAL ---- */
+@media (max-width: 400px) {
+    .pm-topbar-title {
+        font-size: 14px;
+    }
+}
+
+/* ---- MARKET / SHOP ---- */
+@media (max-width: 380px) {
+    .market-item-row {
+        flex-wrap: wrap;
+    }
+}
+
+/* ---- COMBAT SCREEN ---- */
+@media (max-width: 380px) {
+    .combat-actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+        padding: 10px;
+    }
+
+    .btn-combat-action {
+        padding: 10px 3px;
+        font-size: 10px;
+    }
+}
+
+/* ---- CORUSCANT SHAPES ON MOBILE ---- */
+@media (max-width: 400px) {
+    .coruscant-senate-circle {
+        width: 160px !important;
+        height: 160px !important;
+    }
+
+    .coruscant-temple-square {
+        width: 140px !important;
+        height: 140px !important;
+    }
+}
+
+/* ---- ACADEMY LAYOUT ---- */
+@media (max-width: 400px) {
+    .academy-middle-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .korriban-academy-layout {
+        padding: 10px;
+        gap: 12px;
+    }
+}
+
+/* ---- GENERAL TEXT OVERFLOW PROTECTION ---- */
+.location-title,
+.location-desc,
+.npc-name,
+.chat-msg-text,
+.profile-info-val,
+.pm-topbar-title {
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* ---- MAKE ALL INTERACTIVE BUTTONS HAVE MIN TOUCH SIZE ---- */
+.location-action-btn,
+.btn-move,
+.btn-map-back,
+.npc-btn,
+.shape-btn,
+.btn-claim-quest,
+.btn-excavate-tomb,
+.btn-search-crystals,
+.btn-meditate {
+    min-height: 40px;
+}
+
+/* ---- SAFE AREA PADDING FOR BOTTOM ---- */
+#main-content {
+    /* Fixes the bug where content can go under rounded corners on iOS */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---- FIX #main-content white bleed on tall screens ---- */
+#main-content {
+    background-color: var(--bg-dark) !important;
+}

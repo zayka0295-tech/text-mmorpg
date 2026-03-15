@@ -1,0 +1,16 @@
+/* inventory/base.css - Core Inventory Screen Styles */
+
+#inventory-screen {
+    flex-direction: column;
+    height: 100%;
+    background: #111;
+    overflow: hidden;
+}
+
+#inventory-screen.active {
+    display: flex !important;
+}
+
+.inventory-layout {
+    background: transparent !important;
+}

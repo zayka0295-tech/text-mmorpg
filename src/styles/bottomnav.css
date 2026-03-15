@@ -1,0 +1,66 @@
+#bottom-nav {
+    height: var(--bottomnav-height);
+    background-color: var(--bg-darker);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 2px solid var(--bg-black);
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 100;
+}
+
+.nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-gray);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 20%;
+    height: 100%;
+    cursor: pointer;
+    transition: color 0.2s;
+    font-family: var(--font-main);
+}
+
+.nav-btn ion-icon {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+.nav-btn span {
+    font-size: 10px;
+    font-weight: 500;
+}
+
+/* Active State */
+.nav-btn.active {
+    color: var(--active-tab-text);
+}
+
+.nav-btn.active ion-icon {
+    /* If the ion-icon doesn't auto inherit color properly */
+    color: var(--active-tab-text);
+}
+
+/* Notification dot for Chat */
+.icon-wrapper {
+    position: relative;
+    display: flex;
+    margin-bottom: 4px;
+}
+
+.icon-wrapper ion-icon {
+    margin-bottom: 0;
+}
+
+.notification-dot {
+    position: absolute;
+    top: -2px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    background-color: var(--accent-yellow);
+    border-radius: 50%;
+}
