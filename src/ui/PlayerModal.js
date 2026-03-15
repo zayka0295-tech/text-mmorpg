@@ -409,7 +409,7 @@ export class PlayerModal {
 
         document.getElementById('pm-close-btn').addEventListener('click', () => this.hide());
         document.getElementById('pm-attack-btn')?.addEventListener('click', () => this._doAttack(target));
-        document.getElementById('pm-rob-btn')?.addEventListener('click', () => this._doRob(target.id));
+        document.getElementById('pm-rob-btn')?.addEventListener('click', () => this._doRob(target));
 
         document.getElementById('pm-rep-up')?.addEventListener('click', () => this._voteReputation(target.id, 'up'));
         document.getElementById('pm-rep-down')?.addEventListener('click', () => this._voteReputation(target.id, 'down'));
@@ -477,14 +477,23 @@ export class PlayerModal {
         );
     }
 
-    _doRob(targetId) {
+    _doRob(target) {
         PvPManager.doRob(
             this.playerSelf,
-            targetId,
+            target,
             (successMsg, newTargetId) => {
                 this._showResult(successMsg, 'success');
-                const p = this._resolveTarget(newTargetId);
-                if(p) setTimeout(() => this._render(p), 300);
+                // We might need to refresh the target data if we want to show updated money
+                // But usually we just show the result.
+                // If we want to refresh, we'd need to request profile again or manually update local copy.
+                // For now, let's just leave it or manually deduct for UI update?
+                // The target object is a local copy in _render logic.
+                if (target.money) target.money = Math.max(0, target.money - (target._lastStolen || 0));
+                // But we don't know exact stolen amount here easily unless passed back.
+                
+                // Just refresh if ID available?
+                // const p = this._resolveTarget(newTargetId);
+                // if(p) setTimeout(() => this._render(p), 300);
             },
             (errorMsg, cooldown) => {
                 this._showResult(errorMsg, 'error');

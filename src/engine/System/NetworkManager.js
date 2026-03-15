@@ -103,6 +103,10 @@ export class NetworkManager {
         this.send('combat_result', { targetId, data: resultData });
     }
 
+    sendRobResult(targetId, resultData) {
+        this.send('rob_result', { targetId, data: resultData });
+    }
+
     saveProfile(data) {
         this.send('save_profile', { data });
     }
@@ -155,6 +159,9 @@ export class NetworkManager {
                 break;
             case 'combat_result':
                 document.dispatchEvent(new CustomEvent('network:combat_result', { detail: message }));
+                break;
+            case 'rob_result':
+                document.dispatchEvent(new CustomEvent('network:rob_result', { detail: message }));
                 break;
             default:
                 console.log('Unknown server message:', message);

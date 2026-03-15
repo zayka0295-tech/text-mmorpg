@@ -91,6 +91,18 @@ async function handleMessage(ws, message, metadata) {
                     
                     // Broadcast join
                     broadcast({ type: 'player_joined', id: metadata.id, name: profile.name }, ws);
+
+                    // Send existing online players to the new user
+                    for (const [otherWs, otherMeta] of clients) {
+                        if (otherWs !== ws && otherMeta.name && !otherMeta.isAnonymous) {
+                            ws.send(JSON.stringify({
+                                type: 'player_joined',
+                                id: otherMeta.id,
+                                name: otherMeta.name,
+                                locationId: otherMeta.locationId || 'tatooine_spaceport'
+                            }));
+                        }
+                    }
                 }
             } catch (e) {
                 console.error("Login failed:", e);
@@ -113,6 +125,18 @@ async function handleMessage(ws, message, metadata) {
                     
                     ws.send(JSON.stringify({ type: 'register_success', profile }));
                     broadcast({ type: 'player_joined', id: metadata.id, name: profile.name }, ws);
+
+                    // Send existing online players to the new user
+                    for (const [otherWs, otherMeta] of clients) {
+                        if (otherWs !== ws && otherMeta.name && !otherMeta.isAnonymous) {
+                            ws.send(JSON.stringify({
+                                type: 'player_joined',
+                                id: otherMeta.id,
+                                name: otherMeta.name,
+                                locationId: otherMeta.locationId || 'tatooine_spaceport'
+                            }));
+                        }
+                    }
                 }
             } catch (e) {
                 console.error("Register failed:", e);
@@ -145,6 +169,10 @@ async function handleMessage(ws, message, metadata) {
             break;
 
         case 'move': // Basic movement sync
+            metadata.locationId = message.locationId; // Update server-side state
+            if (!metadata.isAnonymous) broadcast(message, ws);
+            break;
+
         case 'update_state': // Full state sync (hp, location, etc.)
             if (!metadata.isAnonymous) broadcast(message, ws);
             break;
@@ -169,7 +197,13 @@ async function handleMessage(ws, message, metadata) {
              }
              break;
 
-        case 'profile_data':
+        case 'combat_result':
+            if (message.targetId) {
+                sendTo(message.targetId, message);
+            }
+            break;
+
+        case 'rob_result':
             if (message.targetId) {
                 sendTo(message.targetId, message);
             }

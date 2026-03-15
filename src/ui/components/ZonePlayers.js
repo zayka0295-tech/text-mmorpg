@@ -11,8 +11,8 @@ export class ZonePlayers {
 
     _initNetworkListeners() {
         document.addEventListener('network:player_joined', (e) => {
-            const { id, name } = e.detail;
-            this.onlinePlayers.set(id, { id, name, locationId: 'unknown', isOnline: true });
+            const { id, name, locationId } = e.detail;
+            this.onlinePlayers.set(id, { id, name, locationId: locationId || 'unknown', isOnline: true });
             this.refreshPlayersInZone();
         });
 
@@ -52,6 +52,18 @@ export class ZonePlayers {
                  }
                  if (data.hpLost > 0) {
                      this.player.hp = Math.max(0, this.player.hp - data.hpLost);
+                 }
+                 this.player.save();
+            }
+        });
+
+        document.addEventListener('network:rob_result', (e) => {
+            const { data } = e.detail;
+            this.showPvpNotification(data);
+            
+            if (this.player.name !== data.attacker) {
+                 if (data.stolen > 0) {
+                     this.player.money = Math.max(0, this.player.money - data.stolen);
                  }
                  this.player.save();
             }

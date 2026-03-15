@@ -387,85 +387,115 @@ export class PvPManager {
         }
     }
 
-    static doRob(playerSelf, targetId, onSuccess, onError) {
-        const pName = targetId.startsWith('real_') ? targetId.slice(5) : targetId;
-        
+    static doRob(playerSelf, targetOrId, onSuccess, onError) {
+        let target;
+        let targetId;
+
+        if (typeof targetOrId === 'object') {
+            target = targetOrId;
+            targetId = target.id;
+        } else {
+            targetId = targetOrId;
+            target = this.resolveTarget(targetId);
+        }
+
+        const pName = target ? target.name : (targetId.startsWith('real_') ? targetId.slice(5) : targetId);
+
+        if (!target) {
+             if(onError) onError('❌ Игрок не найден.');
+             return;
+        }
+
         if (pName === playerSelf.name) {
             if(onError) onError('❌ Вы не можете ограбить самого себя!');
             return;
         }
 
         const cooldownKey = `sw_rob_cooldown_real_${pName}_by_${playerSelf.name}`;
-            const lastRob = parseInt(localStorage.getItem(cooldownKey) || '0', 10);
-            const cooldownMs = 12 * 60 * 60 * 1000;
-            const now = Date.now();
+        const lastRob = parseInt(localStorage.getItem(cooldownKey) || '0', 10);
+        const cooldownMs = 12 * 60 * 60 * 1000;
+        const now = Date.now();
 
-            if (now - lastRob < cooldownMs) {
-                const msLeft = cooldownMs - (now - lastRob);
-                const hLeft = Math.floor(msLeft / 3600000);
-                const mLeft = Math.floor((msLeft % 3600000) / 60000);
-                if(onError) onError(`⏳ Кулдаун! Можно повторить через${hLeft}год${mLeft}мин.`);
-                return;
-            }
+        if (now - lastRob < cooldownMs) {
+            const msLeft = cooldownMs - (now - lastRob);
+            const hLeft = Math.floor(msLeft / 3600000);
+            const mLeft = Math.floor((msLeft % 3600000) / 60000);
+            if(onError) onError(`⏳ Кулдаун! Можно повторить через ${hLeft}ч ${mLeft}мин.`);
+            return;
+        }
 
-            const raw = localStorage.getItem(`sw_player_save_${pName}`);
-            if (!raw) {
-                if(onError) onError('❌ Игрок не найден.');
-                return;
-            }
+        if (target.locationId && playerSelf.locationId && target.locationId !== playerSelf.locationId) {
+            if(onError) onError('⚠️ Вы слишком далеко! Игрок не в вашей текущей зоне.');
+            return;
+        }
 
-            const pData = JSON.parse(raw);
+        if (target.hp !== undefined && target.hp <= 0) {
+            if(onError) onError('❌ Игрок уже без сознания, там нечего брать.');
+            return;
+        }
 
-            if (pData.locationId && playerSelf.locationId && pData.locationId !== playerSelf.locationId) {
-                if(onError) onError('⚠️ Вы слишком далеко! Игрок нет в вашей текущей зоне.');
-                return;
-            }
+        // Set cooldown
+        try { localStorage.setItem(cooldownKey, String(now)); } catch(e) {}
 
-            if (pData.hp !== undefined && pData.hp <= 0) {
-                if(onError) onError('❌ Игрок уже без сознания, там нечего брать.');
-                return;
-            }
+        if (Math.random() > 0.35) {
+            if(onError) onError(`👀 Неудача! ${pName} заметил вашу руку.`);
+            return;
+        }
 
-            // Set cooldown BEFORE random chance or money check, to prevent spamming
-            try { localStorage.setItem(cooldownKey, String(now)); } catch(e) {}
+        if (!target.money || target.money <= 0) {
+            if(onError) onError(`❌ У игрока ${pName} пустые карманы!`);
+            return;
+        }
 
-            if (Math.random() > 0.35) {
-                if(onError) onError(`👀 Неудача!${pName}заметил вашу руку.`);
-                return;
-            }
+        const stolen = Math.floor(target.money * 0.45);
+        
+        if (stolen <= 0) {
+            if(onError) onError(`❌ У игрока ${pName} слишком мало кредитов для кражи!`);
+            return;
+        }
 
+        // --- Execute Robbery ---
+        
+        // 1. Network Logic
+        if (playerSelf.networkMgr) {
+             const resultData = {
+                 attacker: playerSelf.name,
+                 stolen: stolen,
+                 isRobbery: true,
+                 message: `🎭 Игрок ${playerSelf.name} ограбил вас на ${stolen.toLocaleString()} кр.!`,
+                 ts: Date.now()
+             };
+             playerSelf.networkMgr.sendRobResult(targetId, resultData);
+        }
+
+        // 2. Legacy LocalStorage Logic (if target is local bot/player)
+        // We check if it is a "real_" ID and we DON'T have a network manager (offline mode)
+        // OR if we just want to update local cache anyway?
+        // Let's only do local update if offline or if it's explicitly a local target.
+        if (targetId.startsWith('real_') && !playerSelf.networkMgr) {
             try {
-                if (!pData.money || pData.money <= 0) {
-                    if(onError) onError(`❌ У игрока ${pName} пустые карманы!`);
-                    return;
+                const raw = localStorage.getItem(`sw_player_save_${pName}`);
+                if (raw) {
+                    const pData = JSON.parse(raw);
+                    pData.money = Math.max(0, pData.money - stolen);
+                    localStorage.setItem(`sw_player_save_${pName}`, JSON.stringify(pData));
+                    
+                    localStorage.setItem(`sw_pvp_notify_${pName}`, JSON.stringify({
+                        attacker: playerSelf.name,
+                        stolen: stolen,
+                        hpLost: 0,
+                        isRobbery: true,
+                        ts: Date.now()
+                    }));
                 }
+            } catch(e) {}
+        }
 
-                const stolen = Math.floor(pData.money * 0.45);
-                
-                if (stolen <= 0) {
-                    if(onError) onError(`❌ У игрока ${pName} слишком мало кредитов для кражи!`);
-                    return;
-                }
-
-                pData.money = Math.max(0, pData.money - stolen);
-                localStorage.setItem(`sw_player_save_${pName}`, JSON.stringify(pData));
-
-                localStorage.setItem(`sw_pvp_notify_${pName}`, JSON.stringify({
-                    attacker: playerSelf.name,
-                    stolen: stolen,
-                    hpLost: 0,
-                    isRobbery: true,
-                    ts: Date.now()
-                }));
-                setTimeout(() => localStorage.removeItem(`sw_pvp_notify_${pName}`), 3000);
-
-                playerSelf.money += stolen;
-                if (typeof playerSelf.save === 'function') playerSelf.save();
-                
-                Notifications.show(`Ограбление! +${stolen.toLocaleString()} кр.`, 'success');
-                if(onSuccess) onSuccess(`🎭 УСПЕХ! украдено ${stolen.toLocaleString()} кр. у ${pName}!`, targetId);
-            } catch (e) {
-                if(onError) onError('❌ Ошибка при грабеже.');
-            }
+        // 3. Update Self
+        playerSelf.money += stolen;
+        if (typeof playerSelf.save === 'function') playerSelf.save();
+        
+        Notifications.show(`Ограбление! +${stolen.toLocaleString()} кр.`, 'success');
+        if(onSuccess) onSuccess(`🎭 УСПЕХ! Украдено ${stolen.toLocaleString()} кр. у ${pName}!`, targetId);
     }
 }
