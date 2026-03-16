@@ -250,9 +250,33 @@ export class QuestsScreen {
                                     <span>${'Прогресс'}</span>
                                     <span style="color:#9b59b6;">${prog.current} / ${prog.target}</span>
                                 </div>
-        });
-    });
-}
+                                <div style="background:#eee;border:1px solid #000;height:10px;border-radius:3px;">
+                                    <div style="background:#9b59b6;width:${progressPct}%;height:100%;border-radius:3px;transition:width 0.3s;"></div>
+                                </div>
+                            </div>` : ''}
+                            
+                            ${extraCond ? `<div style="font-size:12px;font-weight:bold;margin-bottom:10px;color:#333;">${'Дополнительно:'} ${extraCond}</div>` : ''}
+
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div style="font-size:12px;font-weight:700;color:#9b59b6;">${'НАГРАДА:'} ${def.reward}</div>
+                                ${state === 'completed' 
+                                    ? `<div style="color:#27ae60;font-weight:900;font-size:12px;">${'ГОТОВ К СДАЧЕ'} ✅</div>`
+                                    : `<div style="color:#9b59b6;font-weight:900;font-size:12px;">${'В ПРОЦЕССЕ'} ⏳</div>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+        }
+
+        html += `</div>`;
+        this.container.innerHTML = html;
+        this.attachEventListeners();
+        this._tickTimer();
+    }
 
 _startTimer() {
     this._stopTimer();
@@ -278,7 +302,7 @@ _tickTimer() {
     const h = String(timeLeft.h).padStart(2, '0');
     const m = String(timeLeft.m).padStart(2, '0');
     const s = String(timeLeft.s).padStart(2, '0');
-    el.textContent = `${h}:${m}:${s}`;
+    el.textContent = h + ':' + m + ':' + s;
 
     if (timeLeft.h === 0 && timeLeft.m < 60) {
         el.style.color = timeLeft.m < 10 ? '#e74c3c' : '#f39c12';
@@ -289,3 +313,4 @@ _tickTimer() {
 
 update() { }
 }
+// Force update and ensure syntax fixes are deployed.

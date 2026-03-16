@@ -484,3 +484,5 @@ export class MarketScreen {
         });
     }
 }
+// End of MarketScreen
+
