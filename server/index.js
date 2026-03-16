@@ -40,6 +40,7 @@ app.get('*', (req, res) => {
 });
 
 const clients = new Map();
+const chatHistory = [];
 
 wss.on('connection', (ws) => {
     const id = uuidv4();
