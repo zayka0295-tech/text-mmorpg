@@ -316,7 +316,7 @@ export class MarketScreen {
                             return;
                         }
                         if (this.player.networkMgr) {
-                            this.player.networkMgr.send('market_buy', { itemId: item.id, amount: 1 });
+                            this.player.networkMgr.send('market_buy', { itemId: item.id, amount: 1, itemData: item });
                         }
                     }
                 );

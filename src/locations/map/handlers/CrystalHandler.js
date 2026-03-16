@@ -43,9 +43,12 @@ export class CrystalHandler {
     }
 
     _resumeSearch(msLeft) {
+        this._startTimer(this.searchEndTime);
         setTimeout(() => {
             this.isSearching = false;
             this.searchEndTime = 0;
+            this.searchTimeLeft = '';
+            this._clearTimer();
             this._saveState();
             this._handleCrystalReward(window._mapScreenRef?.startCombat.bind(window._mapScreenRef));
             this.onRender();
@@ -63,11 +66,36 @@ export class CrystalHandler {
 
     //--- Поиск кристаллов (Кристаллические Пещеры) ---
 
+    _startTimer(endTime) {
+        this._clearTimer();
+        this._timerInterval = setInterval(() => {
+            const msLeft = endTime - Date.now();
+            if (msLeft <= 0) {
+                this.searchTimeLeft = '';
+                this._clearTimer();
+            } else {
+                const m = Math.floor(msLeft / 60000);
+                const s = Math.floor((msLeft % 60000) / 1000);
+                this.searchTimeLeft = `${m}м ${String(s).padStart(2, '0')}с`;
+                const el = document.getElementById('crystal-search-timer');
+                if (el) el.textContent = `⏱️ ${this.searchTimeLeft}`;
+            }
+        }, 1000);
+    }
+
+    _clearTimer() {
+        if (this._timerInterval) {
+            clearInterval(this._timerInterval);
+            this._timerInterval = null;
+        }
+    }
+
     startCrystalSearch(setSearching, startCombatCallback) {
         if (this.isSearching) return;
         this.isSearching = true;
         this.searchEndTime = Date.now() + 10 * 60 * 1000;
         this._saveState();
+        this._startTimer(this.searchEndTime);
 
         setSearching(true);
         this.onRender();
@@ -75,6 +103,8 @@ export class CrystalHandler {
         setTimeout(() => {
             this.isSearching = false;
             this.searchEndTime = 0;
+            this.searchTimeLeft = '';
+            this._clearTimer();
             this._saveState();
             setSearching(false);
             this._handleCrystalReward(startCombatCallback);

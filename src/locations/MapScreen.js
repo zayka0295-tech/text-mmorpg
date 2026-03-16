@@ -263,7 +263,7 @@ export class MapScreen {
 
         //Специальные рендеры планет
         if (KorribanRenderer.handles(locId))  return KorribanRenderer.render(locId, this.isSearching);
-        if (DantooineRenderer.handles(locId)) return DantooineRenderer.render(locId, this.isSearching);
+        if (DantooineRenderer.handles(locId)) return DantooineRenderer.render(locId, this.isSearching, this.crystalHandler.searchTimeLeft);
         if (CoruscantRenderer.handles(locId)) return CoruscantRenderer.render(locId);
 
         //Стандартная сеть

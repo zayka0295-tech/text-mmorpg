@@ -179,13 +179,11 @@ export class PlayerModal {
                     this.currentTarget = fallbackTarget;
                     this._render(fallbackTarget);
                     document.getElementById('player-modal').classList.add('active');
+                } else if (this.currentTarget) {
+                    // Preview data already visible — keep showing it, full profile may still arrive
+                    document.getElementById('player-modal').classList.add('active');
                 } else {
-                    if (this.currentTarget) {
-                        document.getElementById('player-modal').classList.add('active');
-                        this._showResult('⚠️ Показаны неполные данные игрока.', 'error');
-                    } else {
-                        this._showResult('❌ Профиль игрока не загрузился.', 'error');
-                    }
+                    this._showResult('❌ Профиль игрока не загрузился.', 'error');
                 }
             }, 4000);
             

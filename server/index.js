@@ -391,7 +391,7 @@ async function handleMessage(ws, message, metadata) {
                 break;
             }
             try {
-                const buyRes = await db.buyItem(metadata.dbId, message.itemId, message.amount || 1);
+                const buyRes = await db.buyItem(metadata.dbId, message.itemId, message.amount || 1, message.itemData || null);
                 if (buyRes.error) {
                     ws.send(JSON.stringify({ type: 'market_result', ok: false, operation: 'buy', error: buyRes.error }));
                 } else {

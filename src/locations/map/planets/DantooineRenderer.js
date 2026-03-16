@@ -11,10 +11,10 @@ export class DantooineRenderer {
         ].includes(locId);
     }
 
-    static render(locId, isSearching) {
+    static render(locId, isSearching, searchTimeLeft) {
         if (locId === 'dantooine_enclave')        return DantooineRenderer._enclave();
         if (locId === 'dantooine_meditation')     return DantooineRenderer._meditation();
-        if (locId === 'dantooine_crystal_caves')  return DantooineRenderer._crystalCaves(isSearching);
+        if (locId === 'dantooine_crystal_caves')  return DantooineRenderer._crystalCaves(isSearching, searchTimeLeft);
         if (locId === 'dantooine_knowledge')      return DantooineRenderer._knowledge();
         return '';
     }
@@ -72,7 +72,7 @@ export class DantooineRenderer {
             </div>`;
     }
 
-    static _crystalCaves(isSearching) {
+    static _crystalCaves(isSearching, searchTimeLeft) {
         const backBtn = isSearching
             ? `<button class="btn-map-back" disabled style="opacity:0.4;cursor:not-allowed;" title="Подождите остановки поиска">← НАЗАД: Внутренний двор анклава</button>`
             : `<button class="btn-map-back btn-move" data-target="dantooine_courtyard">← НАЗАД: Внутренний двор анклава</button>`;
@@ -85,7 +85,8 @@ export class DantooineRenderer {
                     </div>
                     ${isSearching
                         ?`<div class="crystal-searching-state">
-                               <ion-icon name="hourglass-outline" class="spin-animation"></ion-icon> ПОИСК...
+                               <ion-icon name="hourglass-outline" class="spin-animation"></ion-icon>
+                               <span id="crystal-search-timer">${searchTimeLeft ? '⏱️ ' + searchTimeLeft : 'ПОИСК...'}</span>
                            </div>`
                         : `<button id="btn-search-crystals" class="location-action-btn btn-search-crystals">
                                НАЧАТЬ ПОИСК (10 мин) 🔍
