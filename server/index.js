@@ -331,10 +331,16 @@ async function handleMessage(ws, message, metadata) {
                                  error: profileResult?.error
                              });
                          } else {
+                             // Inject isOnline status if player is actually connected but we loaded from DB (e.g. they are in a different zone or just connected)
+                             // This handles the edge case where hasOpenConnectionForPlayer check might be tricky with ID vs Name lookups
+                             const profileData = profileResult.data;
+                             const isOnline = hasOpenConnectionForPlayer(profileData.id);
+                             profileData.isOnline = isOnline;
+
                              ws.send(JSON.stringify({
                                  type: 'profile_data',
-                                 senderId: profileResult.data.id, // Always send back the real UUID
-                                 data: profileResult.data
+                                 senderId: profileData.id, // Always send back the real UUID
+                                 data: profileData
                              }));
                          }
                      } catch (error) {
@@ -630,6 +636,21 @@ async function handleMessage(ws, message, metadata) {
         case 'reputation_vote':
             if (message.targetId) {
                 const voterName = message.senderName || 'Anonymous';
+                const voterId = getStablePlayerId(metadata);
+
+                // Server-side rate limit (2 seconds)
+                const lastVote = metadata.lastVoteTime || 0;
+                if (Date.now() - lastVote < 2000) {
+                    ws.send(JSON.stringify({
+                        type: 'reputation_vote_result',
+                        ok: false,
+                        targetId: message.targetId,
+                        voteType: message.voteType,
+                        error: 'Voting too fast'
+                    }));
+                    break;
+                }
+                metadata.lastVoteTime = Date.now();
                 
                 try {
                     if (!message.voteType || !['up', 'down'].includes(message.voteType)) {

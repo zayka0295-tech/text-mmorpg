@@ -158,13 +158,8 @@ export class Game {
         // Or we can just manually set everything on player. 
         // Let's manually hydrate essential data here or modify PersistenceManager.
         // For MVP, manual hydration of key props:
-        this.player.baseConstitution = profile.baseConstitution ?? this.player.baseConstitution;
-        this.player.baseStrength = profile.baseStrength ?? this.player.baseStrength;
-        this.player.baseAgility = profile.baseAgility ?? this.player.baseAgility;
-        this.player.baseIntellect = profile.baseIntellect ?? this.player.baseIntellect;
-        this.player.statPoints = profile.statPoints ?? this.player.statPoints;
         if (profile.locationId) this.player.locationId = profile.locationId;
-
+        
         // Hydrate Economy & Progression
         this.player.money = profile.money ?? 0;
         this.player.bankBalance = profile.bankBalance ?? 0;

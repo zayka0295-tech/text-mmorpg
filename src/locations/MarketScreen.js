@@ -42,7 +42,8 @@ export class MarketScreen {
     _initMarketEvents() {
         if (this._marketEventsInitialized) return;
         this._marketEventsInitialized = true;
-        // Listen for market results from server
+        console.log('MarketScreen events initialized'); // Force update
+        
         document.addEventListener('network:market_result', (e) => {
             const { ok, operation, error, profile, itemId, amount } = e.detail;
             if (ok) {

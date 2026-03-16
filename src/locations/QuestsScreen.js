@@ -14,6 +14,7 @@ export class QuestsScreen {
     }
 
     init() {
+        console.log('QuestsScreen initialized'); // Force update
         this.screenManager.subscribe('any', (screenId) => {
             if (screenId === 'quests-screen') {
                 this.render();
@@ -249,86 +250,42 @@ export class QuestsScreen {
                                     <span>${'Прогресс'}</span>
                                     <span style="color:#9b59b6;">${prog.current} / ${prog.target}</span>
                                 </div>
-                                <div style="background:#eee;border:1px solid #000;height:10px;border-radius:3px;">
-                                    <div style="background:#9b59b6;width:${progressPct}%;height:100%;border-radius:3px;transition:width 0.3s;"></div>
-                                </div>
-                            </div>` : ''}
-                            
-
-                            ${extraCond ? `<div style="font-size:12px;font-weight:bold;margin-bottom:10px;color:#333;">${'Дополнительно:'} ${extraCond}</div>` : ''}
-
-                            <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <div style="font-size:12px;font-weight:700;color:#9b59b6;">${'НАГРАДА:'} ${def.reward}</div>
-                                ${state === 'completed' 
-                                    ? `<div style="color:#27ae60;font-weight:900;font-size:12px;">${'ГОТОВ К СДАЧЕ'} ✅</div>`
-                                    : `<div style="color:#9b59b6;font-weight:900;font-size:12px;">${'В ПРОЦЕССЕ'} ⏳</div>`
-                                }
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            html += `</div>`;
-        }
-
-        html += `</div>`;
-        this.container.innerHTML = html;
-        this.attachEventListeners();
-        this._tickTimer();
-    }
-
-    attachEventListeners() {
-        const claimBtns = this.container.querySelectorAll('.btn-claim-quest');
-        claimBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const questId = e.target.getAttribute('data-id');
-                const quest = this.player.dailyQuests.find(q => q.id === questId);
-
-                if (quest && quest.isCompleted && !quest.isRewardClaimed) {
-                    if (e.target.disabled) return;
-                    e.target.disabled = true;
-
-                    if (this.player.networkMgr) {
-                        this.player.networkMgr.send('quest_claim', { questId });
-                    }
-                }
-            });
         });
+    });
+}
+
+_startTimer() {
+    this._stopTimer();
+    this._timerInterval = setInterval(() => this._tickTimer(), 1000);
+}
+
+_stopTimer() {
+    if (this._timerInterval) {
+        clearInterval(this._timerInterval);
+        this._timerInterval = null;
     }
+}
 
-    _startTimer() {
-        this._stopTimer();
-        this._timerInterval = setInterval(() => this._tickTimer(), 1000);
+_tickTimer() {
+    const el = document.getElementById('quest-reset-timer');
+    if (!el) return;
+
+    if (!this.saveManager) { el.textContent = '--:--:--'; return; }
+
+    const timeLeft = this.saveManager.getTimeUntilQuestReset();
+    if (!timeLeft) { el.textContent = '--:--:--'; return; }
+
+    const h = String(timeLeft.h).padStart(2, '0');
+    const m = String(timeLeft.m).padStart(2, '0');
+    const s = String(timeLeft.s).padStart(2, '0');
+    el.textContent = `${h}:${m}:${s}`;
+
+    if (timeLeft.h === 0 && timeLeft.m < 60) {
+        el.style.color = timeLeft.m < 10 ? '#e74c3c' : '#f39c12';
+    } else {
+        el.style.color = '#f1c40f';
     }
+}
 
-    _stopTimer() {
-        if (this._timerInterval) {
-            clearInterval(this._timerInterval);
-            this._timerInterval = null;
-        }
-    }
-
-    _tickTimer() {
-        const el = document.getElementById('quest-reset-timer');
-        if (!el) return;
-
-        if (!this.saveManager) { el.textContent = '--:--:--'; return; }
-
-        const timeLeft = this.saveManager.getTimeUntilQuestReset();
-        if (!timeLeft) { el.textContent = '--:--:--'; return; }
-
-        const h = String(timeLeft.h).padStart(2, '0');
-        const m = String(timeLeft.m).padStart(2, '0');
-        const s = String(timeLeft.s).padStart(2, '0');
-        el.textContent = `${h}:${m}:${s}`;
-
-        if (timeLeft.h === 0 && timeLeft.m < 60) {
-            el.style.color = timeLeft.m < 10 ? '#e74c3c' : '#f39c12';
-        } else {
-            el.style.color = '#f1c40f';
-        }
-    }
-
-    update() { }
+update() { }
 }
