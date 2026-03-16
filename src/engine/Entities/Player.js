@@ -181,6 +181,8 @@ export class Player extends Entity {
   enforceTitleRestrictions() {
     if (!this.quests) this.quests = {};
 
+    // Removed aggressive reset logic to allow manual/dev overrides
+    /*
     const darkTitles = ["Претендент", "Аколит", "Ситх"];
     const lightTitles = ["Юнлинг", "Падаван", "Джедай"];
 
@@ -205,20 +207,25 @@ export class Player extends Entity {
       this.unlockedForceSkills = [];
       notify('Гнев и Тьма стёрли ваш титул Джедая!', "warning");
     }
+    */
 
     //Если остались Контрабандистом после проверок, жестко сбрасываем Силу на ноль, если нет квеста
     if (this.title === "Контрабандист") {
       this.forcePoints = 0;
       this.activeForceSkill = null;
-      this.unlockedForceSkills = [];
+      // this.unlockedForceSkills = []; // Don't wipe unlocked skills, just disable access via title
 
       const hasActiveQuest =
         this.quests &&
         (this.quests.sith_initiation === "active" ||
           this.quests.jedi_initiation === "active");
+      
+      // Don't wipe alignment for manual edits either
+      /*
       if (!hasActiveQuest) {
         this._alignment = 0;
       }
+      */
     }
   }
 
