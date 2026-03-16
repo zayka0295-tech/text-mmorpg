@@ -1367,7 +1367,7 @@ class DatabaseService {
             level: dbProfile.level,
             xp: dbProfile.xp,
             alignment: dbProfile.alignment,
-            reputation: dbProfile.reputation,
+            reputation: Number(dbProfile.reputation) || 0, // Ensure number
             
             money: Number(moneyVal) || 0, // Ensure number
             bankBalance: dbProfile.bank_balance,

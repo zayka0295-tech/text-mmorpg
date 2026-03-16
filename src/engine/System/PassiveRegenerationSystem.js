@@ -22,26 +22,42 @@ export class PassiveRegenerationSystem {
      */
     setupHpRegeneration() {
         const hpLoopId = 'hp-regeneration';
+        this.lastHpRegenTime = Date.now();
         
         this.gameLoopManager.addLoop(hpLoopId, (currentTime, deltaTime) => {
             if (this.isPaused) return;
             
             // Останавливаем регенерацию во время боя
-            if (this.isInCombat()) return;
-
-            if (this.player.hp < this.player.maxHp) {
-                let multiplier = 1;
-                if (this.player.hasBuff('juma_juice')) multiplier = 5;
-
-                const regenAmt = Math.max(1, Math.floor(this.player.maxHp * 0.01 * multiplier));
-                const healed = this.player.heal(regenAmt);
-                
-                // Сповіщення про регенерацію (опціонально)
-                if (healed > 0 && Math.random() < 0.1) { // 10% шанс показати повідомлення
-                    this.emitRegenerationEvent('hp', healed);
-                }
+            if (this.isInCombat()) {
+                this.lastHpRegenTime = Date.now(); // Reset timer during combat
+                return;
             }
-        }, 10000); // Кожні 10 секунд
+
+            const now = Date.now();
+            const elapsed = now - this.lastHpRegenTime;
+            const REGEN_INTERVAL = 10000; // 10 seconds
+
+            if (elapsed >= REGEN_INTERVAL) {
+                if (this.player.hp < this.player.maxHp) {
+                    const ticks = Math.floor(elapsed / REGEN_INTERVAL);
+                    
+                    let multiplier = 1;
+                    if (this.player.hasBuff('juma_juice')) multiplier = 5;
+
+                    const regenPerTick = Math.max(1, Math.floor(this.player.maxHp * 0.01 * multiplier));
+                    const totalRegen = regenPerTick * ticks;
+                    
+                    const healed = this.player.heal(totalRegen);
+                    
+                    // Сповіщення про регенерацію (опціонально)
+                    if (healed > 0 && Math.random() < 0.1) { 
+                        this.emitRegenerationEvent('hp', healed);
+                    }
+                }
+                // Advance time by exact ticks to preserve remainder
+                this.lastHpRegenTime += Math.floor(elapsed / REGEN_INTERVAL) * REGEN_INTERVAL;
+            }
+        }, 1000); // Check every second, but apply logic based on real time
 
         this.loops.set(hpLoopId, 'hp');
     }
@@ -51,31 +67,45 @@ export class PassiveRegenerationSystem {
      */
     setupForceRegeneration() {
         const forceLoopId = 'force-regeneration';
+        this.lastForceRegenTime = Date.now();
         
         this.gameLoopManager.addLoop(forceLoopId, (currentTime, deltaTime) => {
             if (this.isPaused) return;
             
             // Останавливаем регенерацию во время боя
-            if (this.isInCombat()) return;
-            
-            if (this.player.canUseForce && this.player.forcePoints < this.player.maxForcePoints) {
-                let addAmt = 1;
-                if (this.player.hasBuff('juma_juice')) addAmt = 5;
-
-                const oldForce = this.player.forcePoints;
-                this.player.forcePoints = Math.min(
-                    this.player.forcePoints + addAmt,
-                    this.player.maxForcePoints
-                );
-                
-                const regenerated = this.player.forcePoints - oldForce;
-                
-                // Сповіщення про регенерацію (опціонально)
-                if (regenerated > 0 && Math.random() < 0.05) { // 5% шанс показати повідомлення
-                    this.emitRegenerationEvent('force', regenerated);
-                }
+            if (this.isInCombat()) {
+                this.lastForceRegenTime = Date.now();
+                return;
             }
-        }, 1000); // Кожну секунду
+            
+            const now = Date.now();
+            const elapsed = now - this.lastForceRegenTime;
+            const REGEN_INTERVAL = 1000; // 1 second
+
+            if (elapsed >= REGEN_INTERVAL) {
+                if (this.player.canUseForce && this.player.forcePoints < this.player.maxForcePoints) {
+                    const ticks = Math.floor(elapsed / REGEN_INTERVAL);
+                    
+                    let addAmtPerTick = 1;
+                    if (this.player.hasBuff('juma_juice')) addAmtPerTick = 5;
+
+                    const totalAdd = addAmtPerTick * ticks;
+
+                    const oldForce = this.player.forcePoints;
+                    this.player.forcePoints = Math.min(
+                        this.player.forcePoints + totalAdd,
+                        this.player.maxForcePoints
+                    );
+                    
+                    const regenerated = this.player.forcePoints - oldForce;
+                    
+                    if (regenerated > 0 && Math.random() < 0.05) {
+                        this.emitRegenerationEvent('force', regenerated);
+                    }
+                }
+                this.lastForceRegenTime += Math.floor(elapsed / REGEN_INTERVAL) * REGEN_INTERVAL;
+            }
+        }, 1000); // Check every second
 
         this.loops.set(forceLoopId, 'force');
     }

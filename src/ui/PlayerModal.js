@@ -68,10 +68,14 @@ export class PlayerModal {
 
         document.addEventListener('network:profile_data', (e) => {
             const { senderId, data } = e.detail;
+            
+            // Fix: Check name match if we were waiting for a name (ID might have been unknown)
+            const isNameMatch = this.waitingForTargetName && data.name === this.waitingForTargetName;
+            const isIdMatch = this.waitingForTargetId && this.waitingForTargetId === senderId;
+            const isCurrentTarget = this.currentTarget && this.currentTarget.id === senderId;
+
             // Accept if we're still waiting for this target OR if the modal is already showing this target
-            const isExpected = this.waitingForTargetId === senderId ||
-                (this.currentTarget && this.currentTarget.id === senderId);
-            if (!isExpected) return;
+            if (!isIdMatch && !isNameMatch && !isCurrentTarget) return;
 
             if (this.profileRequestTimeoutId) {
                 clearTimeout(this.profileRequestTimeoutId);
