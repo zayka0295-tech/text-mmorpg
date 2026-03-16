@@ -111,7 +111,8 @@ async function sendZonePopulation(ws, locationId) {
             avatar: p.avatar, // Ensure avatar is sent
             title: p.title,
             level: p.level,
-            alignment: p.alignment
+            alignment: p.alignment,
+            reputation: p.reputation // Added reputation for instant preview
         };
     });
 
@@ -161,6 +162,7 @@ async function handleMessage(ws, message, metadata) {
                         title: profile.title,
                         level: profile.level,
                         alignment: profile.alignment,
+                        reputation: profile.reputation, // Add reputation
                         isOnline: true
                     }, ws);
 
@@ -202,6 +204,7 @@ async function handleMessage(ws, message, metadata) {
                         title: profile.title,
                         level: profile.level,
                         alignment: profile.alignment,
+                        reputation: profile.reputation, // Add reputation
                         isOnline: true
                     }, ws);
 
@@ -242,6 +245,7 @@ async function handleMessage(ws, message, metadata) {
                         title: profile.title,
                         level: profile.level,
                         alignment: profile.alignment,
+                        reputation: profile.reputation, // Add reputation
                         isOnline: true
                     }, ws);
 
@@ -323,6 +327,7 @@ async function handleMessage(ws, message, metadata) {
                 title: message.title,
                 level: message.level,
                 alignment: message.alignment,
+                reputation: message.reputation, // Add reputation
                 isOnline: true
             });
             break;

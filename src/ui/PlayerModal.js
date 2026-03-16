@@ -36,25 +36,25 @@ export class PlayerModal {
         const maxHp = target.maxHp ?? target.totalMaxHp ?? target.baseMaxHp ?? hp ?? 100;
 
         return {
-            className: 'Контрабандист',
-            title: null,
-            level: 1,
+            className: target.className || 'Контрабандист',
+            title: target.title || null,
+            level: target.level || 1,
             hp,
             maxHp,
-            money: 0,
+            money: target.money || 0,
             attack: target.attack ?? target.totalAttack ?? target.baseAttack ?? 0,
             defense: target.defense ?? target.totalDefense ?? target.baseDefense ?? 0,
             strength,
             agility,
             constitution,
             intellect,
-            alignment: 0,
-            isOnline: false,
-            locationId: 'unknown',
-            reputation: 0,
-            reputationVotes: {},
-            ship: null,
-            avatar: '🧑🚀',
+            alignment: target.alignment || 0,
+            isOnline: target.isOnline !== undefined ? target.isOnline : false,
+            locationId: target.locationId || 'unknown',
+            reputation: target.reputation !== undefined ? target.reputation : 0,
+            reputationVotes: target.reputationVotes || {},
+            ship: target.ship || null,
+            avatar: target.avatar || '🧑🚀',
             ...target
         };
     }
@@ -139,7 +139,9 @@ export class PlayerModal {
                 this.currentTarget = previewTarget;
                 this._render(previewTarget);
                 document.getElementById('player-modal').classList.add('active');
-                this._showResult('⏳ Загружаем полный профиль...', 'success');
+                // The preview now contains accurate reputation, so we don't need to show "Loading..." 
+                // which makes it feel slow. The stats will update silently when full profile arrives.
+                // this._showResult('⏳ Загружаем полный профиль...', 'success');
             }
 
             this.waitingForTargetId = targetId;
