@@ -199,7 +199,7 @@ class DatabaseService {
                 return { error: 'Cannot vote for yourself' };
             }
 
-            // 1. Check existing vote
+            // 1. Check existing vote (to determine intent: new, unvote, or switch)
             const { data: existing } = await this.supabase
                 .from('reputation_votes')
                 .select('vote_type')
@@ -207,53 +207,28 @@ class DatabaseService {
                 .eq('target_id', targetId)
                 .maybeSingle();
 
-            // 2. Fetch current reputation
-            const { data: profile, error: fetchError } = await this.supabase
-                .from('profiles')
-                .select('id, reputation')
-                .eq('id', targetId)
-                .single();
+            // 2. ALWAYS Delete existing votes for this pair first (Clean slate / Clean up duplicates)
+            const { error: delErr } = await this.supabase
+                .from('reputation_votes')
+                .delete()
+                .eq('voter_id', voterId)
+                .eq('target_id', targetId);
 
-            if (fetchError || !profile) {
-                this._logDbError('voteReputation.fetchTarget', fetchError, { targetId, voterId, voteType });
-                return { error: 'Target not found' };
-            }
+            if (delErr) return { error: delErr.message };
 
-            let reputation = profile.reputation || 0;
-            let reputationChange = 0;
-            let activeVote = voteType; // what vote is now active (null = removed)
+            let activeVote = null;
 
-            if (existing) {
-                if (existing.vote_type === voteType) {
-                    // Same vote → unvote (remove)
-                    const { error: delErr } = await this.supabase
-                        .from('reputation_votes')
-                        .delete()
-                        .eq('voter_id', voterId)
-                        .eq('target_id', targetId);
-                    if (delErr) return { error: delErr.message };
-                    reputationChange = voteType === 'up' ? -1 : 1;
-                    activeVote = null;
-                } else {
-                    // Opposite vote → switch (±2)
-                    const { error: updErr } = await this.supabase
-                        .from('reputation_votes')
-                        .update({ vote_type: voteType })
-                        .eq('voter_id', voterId)
-                        .eq('target_id', targetId);
-                    if (updErr) return { error: updErr.message };
-                    reputationChange = voteType === 'up' ? 2 : -2;
-                }
-            } else {
-                // New vote
+            // 3. Insert new vote ONLY if it's a New Vote or a Switch (If same type, we stop here = Unvote)
+            if (!existing || existing.vote_type !== voteType) {
                 const { error: insErr } = await this.supabase
                     .from('reputation_votes')
                     .insert({ voter_id: voterId, target_id: targetId, vote_type: voteType });
+                
                 if (insErr) return { error: insErr.message };
-                reputationChange = voteType === 'up' ? 1 : -1;
+                activeVote = voteType;
             }
 
-            // 3. Recalculate total reputation from source of truth
+            // 4. Recalculate total reputation from source of truth
             const { count: upVotes, error: upErr } = await this.supabase
                 .from('reputation_votes')
                 .select('*', { count: 'exact', head: true })
