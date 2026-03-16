@@ -11,6 +11,7 @@ if (!process.env.SUPABASE_URL || (!process.env.SUPABASE_KEY && !process.env.SUPA
 class DatabaseService {
     constructor() {
         this.locks = new Map(); // Mutex for player inventory operations
+        this.moneyColumn = 'money'; // Default column name, auto-detected in _mapDbProfileToGameData
         const supabaseUrl = process.env.SUPABASE_URL;
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
@@ -79,7 +80,7 @@ class DatabaseService {
                 title: className || 'Контрабандист', // Title defaults to class name
                 level: 1,
                 xp: 0,
-                money: 0,
+                [this.moneyColumn]: 0,
                 location_id: 'tatooine_spaceport',
                 updated_at: new Date()
             };
@@ -357,7 +358,7 @@ class DatabaseService {
             reputation: playerData.reputation,
             
             // Economy
-            money: playerData.money,
+            [this.moneyColumn]: playerData.money,
             bank_balance: playerData.bankBalance,
             datarii: playerData.datarii,
             
@@ -524,13 +525,13 @@ class DatabaseService {
             try {
                 const { data: profile, error: fetchError } = await this.supabase
                     .from('profiles')
-                    .select('money, inventory_data')
+                    .select(`${this.moneyColumn}, inventory_data`)
                     .eq('id', playerId)
                     .single();
 
                 if (fetchError || !profile) return { error: 'Profile not found' };
 
-                if (profile.money < cost) {
+                if (profile[this.moneyColumn] < cost) {
                     return { error: 'Insufficient funds' };
                 }
 
@@ -547,12 +548,12 @@ class DatabaseService {
                     }
                 }
 
-                const newMoney = profile.money - cost;
+                const newMoney = profile[this.moneyColumn] - cost;
 
                 const { data: updatedProfile, error: updateError } = await this.supabase
                     .from('profiles')
                     .update({ 
-                        money: newMoney,
+                        [this.moneyColumn]: newMoney,
                         inventory_data: { ...profile.inventory_data, inventory: inventory },
                         updated_at: new Date()
                     })
@@ -593,7 +594,7 @@ class DatabaseService {
             try {
                 const { data: profile, error: fetchError } = await this.supabase
                     .from('profiles')
-                    .select('money, inventory_data')
+                    .select(`${this.moneyColumn}, inventory_data`)
                     .eq('id', playerId)
                     .single();
 
@@ -625,12 +626,12 @@ class DatabaseService {
                     inventory.splice(itemIndex, 1);
                 }
 
-                const newMoney = profile.money + sellPrice;
+                const newMoney = profile[this.moneyColumn] + sellPrice;
 
                 const { data: updatedProfile, error: updateError } = await this.supabase
                     .from('profiles')
                     .update({
-                        money: newMoney,
+                        [this.moneyColumn]: newMoney,
                         inventory_data: { ...profile.inventory_data, inventory: inventory },
                         updated_at: new Date()
                     })
@@ -760,7 +761,7 @@ class DatabaseService {
 
             // Calculate rewards
             const rewards = jobDef.rewards || {};
-            let newMoney = (profile.money || 0) + (rewards.credits || 0);
+            let newMoney = (profile[this.moneyColumn] || 0) + (rewards.credits || 0);
             let newXp = (profile.xp || 0) + (rewards.xp || 0);
             let newAlignment = (profile.alignment || 0) + (rewards.alignment || 0);
             
@@ -821,7 +822,7 @@ class DatabaseService {
             const { data: updatedProfile, error: updateError } = await this.supabase
                 .from('profiles')
                 .update({ 
-                    money: newMoney,
+                    [this.moneyColumn]: newMoney,
                     xp: newXp,
                     level: currentLevel,
                     alignment: newAlignment,
@@ -865,20 +866,20 @@ class DatabaseService {
         const deductResult = await this._withLock(targetId, async () => {
             const { data: target, error: fetchError } = await this.supabase
                 .from('profiles')
-                .select('money, username')
+                .select(`${this.moneyColumn}, username`)
                 .eq('id', targetId)
                 .single();
 
             if (fetchError || !target) return { error: 'Target not found' };
-            if ((target.money || 0) <= 0) return { error: 'Target has no money' };
+            if ((target[this.moneyColumn] || 0) <= 0) return { error: 'Target has no money' };
 
-            const stolen = Math.floor(target.money * 0.45);
+            const stolen = Math.floor(target[this.moneyColumn] * 0.45);
             if (stolen <= 0) return { error: 'Target has too little money' };
 
-            const newMoney = target.money - stolen;
+            const newMoney = target[this.moneyColumn] - stolen;
             const { error: updateError } = await this.supabase
                 .from('profiles')
-                .update({ money: newMoney, updated_at: new Date() })
+                .update({ [this.moneyColumn]: newMoney, updated_at: new Date() })
                 .eq('id', targetId);
 
             if (updateError) return { error: updateError.message };
@@ -894,7 +895,7 @@ class DatabaseService {
         await this._withLock(attackerId, async () => {
             const { data: attacker, error: fetchErr } = await this.supabase
                 .from('profiles')
-                .select('money')
+                .select(this.moneyColumn)
                 .eq('id', attackerId)
                 .single();
             
@@ -905,7 +906,7 @@ class DatabaseService {
 
             const { error: upErr } = await this.supabase
                 .from('profiles')
-                .update({ money: (attacker.money || 0) + stolen, updated_at: new Date() })
+                .update({ [this.moneyColumn]: (attacker[this.moneyColumn] || 0) + stolen, updated_at: new Date() })
                 .eq('id', attackerId);
             
             if (upErr) console.error('[robPlayer] Failed to add money to attacker', upErr);
@@ -928,23 +929,23 @@ class DatabaseService {
             try {
                 const { data: profile, error: fetchError } = await this.supabase
                     .from('profiles')
-                    .select('money, bank_balance')
+                    .select(`${this.moneyColumn}, bank_balance`)
                     .eq('id', playerId)
                     .single();
 
                 if (fetchError || !profile) return { error: 'Profile not found' };
 
-                if (profile.money < amount) {
+                if (profile[this.moneyColumn] < amount) {
                     return { error: 'Insufficient funds' };
                 }
 
-                const newMoney = profile.money - amount;
+                const newMoney = profile[this.moneyColumn] - amount;
                 const newBank = (profile.bank_balance || 0) + amount;
 
                 const { data: updatedProfile, error: updateError } = await this.supabase
                     .from('profiles')
                     .update({ 
-                        money: newMoney, 
+                        [this.moneyColumn]: newMoney, 
                         bank_balance: newBank,
                         updated_at: new Date()
                     })
@@ -976,7 +977,7 @@ class DatabaseService {
             try {
                 const { data: profile, error: fetchError } = await this.supabase
                     .from('profiles')
-                    .select('money, bank_balance')
+                    .select(`${this.moneyColumn}, bank_balance`)
                     .eq('id', playerId)
                     .single();
 
@@ -987,13 +988,13 @@ class DatabaseService {
                     return { error: 'Insufficient bank funds' };
                 }
 
-                const newMoney = profile.money + amount;
+                const newMoney = profile[this.moneyColumn] + amount;
                 const newBank = currentBank - amount;
 
                 const { data: updatedProfile, error: updateError } = await this.supabase
                     .from('profiles')
                     .update({ 
-                        money: newMoney, 
+                        [this.moneyColumn]: newMoney, 
                         bank_balance: newBank,
                         updated_at: new Date()
                     })
@@ -1205,7 +1206,7 @@ class DatabaseService {
 
             // Apply rewards
             const reward = foundQuest.reward || {};
-            let newMoney = (profile.money || 0) + (reward.money || 0);
+            let newMoney = (profile[this.moneyColumn] || 0) + (reward.money || 0);
             let newXp = (profile.xp || 0) + (reward.xp || 0);
             
             // Mark as claimed
@@ -1232,7 +1233,7 @@ class DatabaseService {
             const { data: updatedProfile, error: updateError } = await this.supabase
                 .from('profiles')
                 .update({ 
-                    money: newMoney,
+                    [this.moneyColumn]: newMoney,
                     xp: newXp,
                     level: currentLevel,
                     stats: newStats,
@@ -1259,11 +1260,25 @@ class DatabaseService {
     _mapDbProfileToGameData(dbProfile) {
         if (!dbProfile) return null;
 
+        // DEBUG: Log raw DB keys to verify column names
+        // console.log('[DatabaseService] Raw DB Profile Keys:', Object.keys(dbProfile)); // Reduced noise
+
+        // Auto-detect money column if not yet detected or if switching schemas
+        if (dbProfile.money === undefined && dbProfile.credits !== undefined) {
+            if (this.moneyColumn !== 'credits') console.log('[DatabaseService] Detected "credits" column. Switching moneyColumn.');
+            this.moneyColumn = 'credits';
+        } else if (dbProfile.money !== undefined) {
+            if (this.moneyColumn !== 'money') console.log('[DatabaseService] Detected "money" column. Switching moneyColumn.');
+            this.moneyColumn = 'money';
+        }
+
         const shipData = dbProfile.ship_data && typeof dbProfile.ship_data === 'object' && dbProfile.ship_data.id
             ? dbProfile.ship_data
             : null;
 
         // Map back to format expected by PersistenceManager.load() logic
+        const moneyVal = dbProfile[this.moneyColumn] !== undefined ? dbProfile[this.moneyColumn] : 0;
+
         return {
             id: dbProfile.id,
             name: dbProfile.username,
@@ -1277,7 +1292,7 @@ class DatabaseService {
             alignment: dbProfile.alignment,
             reputation: dbProfile.reputation,
             
-            money: dbProfile.money,
+            money: Number(moneyVal) || 0, // Ensure number
             bankBalance: dbProfile.bank_balance,
             datarii: dbProfile.datarii,
             
