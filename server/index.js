@@ -604,6 +604,29 @@ async function handleMessage(ws, message, metadata) {
             }
             break;
 
+        case 'quest_claim':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'quest_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const claimRes = await db.claimQuestReward(metadata.dbId, message.questId);
+                if (claimRes.error) {
+                    ws.send(JSON.stringify({ type: 'quest_result', ok: false, error: claimRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'quest_result', 
+                        ok: true, 
+                        profile: claimRes.data,
+                        rewards: claimRes.rewards
+                    }));
+                }
+            } catch (e) {
+                console.error('Quest claim error:', e);
+                ws.send(JSON.stringify({ type: 'quest_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
         case 'reputation_vote':
             if (message.targetId) {
                 const voterName = message.senderName || 'Anonymous';

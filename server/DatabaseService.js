@@ -1006,6 +1006,99 @@ class DatabaseService {
     }
 
     /**
+     * Claim quest reward securely
+     * @param {string} playerId
+     * @param {string} questId
+     * @returns {Promise<{data, error}>}
+     */
+    async claimQuestReward(playerId, questId) {
+        if (!this.supabase) return { error: 'Database not configured' };
+
+        try {
+            const { data: profile, error: fetchError } = await this.supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', playerId)
+                .single();
+
+            if (fetchError || !profile) return { error: 'Profile not found' };
+
+            let quests = profile.quests_data?.quests || {};
+            let dailyQuests = profile.quests_data?.dailyQuests || [];
+            
+            let foundQuest = null;
+            let isDaily = false;
+
+            // Check daily quests first
+            const dailyIndex = dailyQuests.findIndex(q => q.id === questId);
+            if (dailyIndex !== -1) {
+                foundQuest = dailyQuests[dailyIndex];
+                isDaily = true;
+            } else {
+                // Check story quests
+                // Story quests are usually stored as key-value state: { "quest_id": "active" | "completed" }
+                // Reward claiming logic for story quests is complex (custom rewards).
+                // For now, let's focus on Daily Quests which have standard rewards structure.
+                // If the user meant story quest, we need more logic.
+                // Assuming this is for Daily Quests based on QuestsScreen.js audit.
+            }
+
+            if (!foundQuest) return { error: 'Quest not found or not active' };
+
+            if (!foundQuest.isCompleted) return { error: 'Quest not completed yet' };
+            if (foundQuest.isRewardClaimed) return { error: 'Reward already claimed' };
+
+            // Apply rewards
+            const reward = foundQuest.reward || {};
+            let newMoney = (profile.money || 0) + (reward.money || 0);
+            let newXp = (profile.xp || 0) + (reward.xp || 0);
+            
+            // Mark as claimed
+            foundQuest.isRewardClaimed = true;
+            if (isDaily) {
+                dailyQuests[dailyIndex] = foundQuest;
+            }
+
+            // Level up logic (reuse simplified version or shared helper if I had one)
+            let currentLevel = profile.level || 1;
+            const getNextXp = (lvl) => Math.floor(100 * Math.pow(1.5, lvl - 1));
+            while (newXp >= getNextXp(currentLevel) && currentLevel < 100) {
+                newXp -= getNextXp(currentLevel);
+                currentLevel++;
+            }
+            
+            let newStatPoints = (profile.stats?.statPoints || 0);
+            if (currentLevel > (profile.level || 1)) {
+                newStatPoints += (currentLevel - (profile.level || 1)) * 3;
+            }
+
+            const newStats = { ...profile.stats, statPoints: newStatPoints };
+
+            const { data: updatedProfile, error: updateError } = await this.supabase
+                .from('profiles')
+                .update({ 
+                    money: newMoney,
+                    xp: newXp,
+                    level: currentLevel,
+                    stats: newStats,
+                    quests_data: { quests, dailyQuests },
+                    updated_at: new Date()
+                })
+                .eq('id', playerId)
+                .select()
+                .single();
+
+            if (updateError) return { error: updateError.message };
+
+            return { data: this._mapDbProfileToGameData(updatedProfile), rewards: reward, error: null };
+
+        } catch (error) {
+            this._logDbError('claimQuestReward.catch', error, { playerId, questId });
+            return { error: 'Failed to claim reward' };
+        }
+    }
+
+    /**
      * Helper to convert DB snake_case to game camelCase
      */
     _mapDbProfileToGameData(dbProfile) {

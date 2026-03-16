@@ -22,6 +22,31 @@ export class QuestsScreen {
                 this._stopTimer();
             }
         });
+
+        document.addEventListener('network:quest_result', (e) => {
+            const { ok, error, profile, rewards } = e.detail;
+            if (ok && profile) {
+                // Update local state
+                this.player.money = profile.money;
+                this.player.xp = profile.xp;
+                if (profile.quests) this.player.quests = profile.quests;
+                if (profile.dailyQuests) this.player.dailyQuests = profile.dailyQuests;
+                
+                this.player._emit('money-changed');
+                this.player._emit('xp-changed');
+                
+                // Re-render
+                if (document.getElementById('quests-screen').classList.contains('active')) {
+                    this.render();
+                }
+
+                if (rewards) {
+                    Notifications.show(`Задание выполнено! +${rewards.money} кр., +${rewards.xp} XP`, 'success');
+                }
+            } else {
+                Notifications.show(error || 'Ошибка выполнения задания', 'error');
+            }
+        });
     }
 
     render() {
@@ -72,12 +97,13 @@ export class QuestsScreen {
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div class="quest-rewards" style="font-size: 12px; font-weight: bold; color: #2980b9;">
                                     ${'НАГРАДА:'} ${quest.reward.xp} XP | ${quest.reward.money}кр.
-                                </div>`;
+                                </div>
+                `;
 
                 if (isClaimed) {
                     html += `<div style="color: #27ae60; font-weight: 900; font-size: 14px;">${'ЗАВЕРШЕН'} ✅</div>`;
                 } else if (isDone) {
-                    html += `<button class="btn-claim-quest" data-id="${quest.id}" style="background: #f1c40f; color: #000; border: 2px solid #000; font-weight: bold; padding: 6px 12px; cursor: pointer; transition: 0.2s;">${'ПОЛУЧИТ'}</button>`;
+                    html += `<button class="btn-claim-quest" data-id="${quest.id}" style="background: #f1c40f; color: #000; border: 2px solid #000; font-weight: bold; padding: 6px 12px; cursor: pointer; transition: 0.2s;">${'ПОЛУЧИТЬ НАГРАДУ'}</button>`;
                 } else {
                     html += `<div style="color: #e74c3c; font-weight: bold; font-size: 12px;">${'В ПРОЦЕССЕ'} ⏳</div>`;
                 }
@@ -227,6 +253,7 @@ export class QuestsScreen {
                                 </div>
                             </div>` : ''}
                             
+
                             ${extraCond ? `<div style="font-size:12px;font-weight:bold;margin-bottom:10px;color:#333;">${'Дополнительно:'} ${extraCond}</div>` : ''}
 
                             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -258,15 +285,12 @@ export class QuestsScreen {
                 const quest = this.player.dailyQuests.find(q => q.id === questId);
 
                 if (quest && quest.isCompleted && !quest.isRewardClaimed) {
-                    if (e.target.disabled) return; //Предохранитель от AutoClicker
-                    e.target.disabled = true; //Блокируем кнопку сразу
+                    if (e.target.disabled) return;
+                    e.target.disabled = true;
 
-                    quest.isRewardClaimed = true;
-                    this.player.gainXp(quest.reward.xp);
-                    this.player.money += quest.reward.money;
-                    this.player.save(); //Обязычная сохранность перед обновлением UI
-                    this.render();
-                    Notifications.show(`Задание выполнено! +${quest.reward.money} кр., +${quest.reward.xp} XP`, 'success');
+                    if (this.player.networkMgr) {
+                        this.player.networkMgr.send('quest_claim', { questId });
+                    }
                 }
             });
         });
