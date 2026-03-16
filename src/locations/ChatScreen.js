@@ -213,6 +213,12 @@ export class ChatScreen {
     }
 
     _addMessage(msg) {
+        // Deduplication check: ignore if we already have a message with same TS, author, text
+        const exists = this.messages.some(m => 
+            m.ts === msg.ts && m.author === msg.author && m.text === msg.text
+        );
+        if (exists) return;
+
         this.messages.push(msg);
         if (this.messages.length > MAX_MESSAGES) {
             this.messages.shift(); //Удаляем самое старое
