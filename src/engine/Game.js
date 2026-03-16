@@ -297,7 +297,8 @@ export class Game {
         if (!this.player.dailyQuests || this.player.dailyQuests.length === 0) {
             console.log('Generating daily quests for hydrated player...');
             this.player.dailyQuests = QuestGenerator.generateDailyQuests();
-            this.player.save();
+            // Force save because we just reset the dirty flag, but this IS a change we want to keep
+            this.player.save(true);
         }
 
         // Note: NetworkManager is already connected.

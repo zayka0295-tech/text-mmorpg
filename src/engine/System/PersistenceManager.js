@@ -59,14 +59,18 @@ export class PersistenceManager {
     }
 
     load() {
+        console.log('[PersistenceManager] load() called. Checking LocalStorage...');
         const p = this.player;
         p.isInitialLoading = true;
         const savedData = localStorage.getItem(`sw_player_save_${p.name}`);
         
         if (!savedData) {
+            console.log('[PersistenceManager] No local save found.');
             p.isInitialLoading = false;
             return;
         }
+
+        console.warn('[PersistenceManager] Loading from LocalStorage! This might overwrite server data if not intended.');
 
         try {
             const data = JSON.parse(savedData);

@@ -92,6 +92,31 @@ class DatabaseService {
                 .single();
 
             if (error) {
+                // Retry if column missing (money vs credits)
+                if (error.code === '42703') {
+                    const isMoney = this.moneyColumn === 'money';
+                    console.warn(`[registerUser] Column '${this.moneyColumn}' not found. Retrying with '${isMoney ? 'credits' : 'money'}'...`);
+                    this.moneyColumn = isMoney ? 'credits' : 'money';
+                    
+                    delete profile.money;
+                    delete profile.credits;
+                    profile[this.moneyColumn] = 0;
+
+                    const { data: retryData, error: retryError } = await this.supabase
+                        .from('profiles')
+                        .insert([profile])
+                        .select()
+                        .single();
+                    
+                    if (retryError) {
+                        this._logDbError('registerUser.retry', retryError, { username });
+                        return { error: retryError.message };
+                    }
+                    const gameData = this._mapDbProfileToGameData(retryData);
+                    gameData.sessionToken = sessionToken;
+                    return { data: gameData, error: null };
+                }
+
                 this._logDbError('registerUser.insert', error, { username });
                 if (error.code === '23505') {
                     return { error: 'Username already taken' };
@@ -1285,15 +1310,42 @@ class DatabaseService {
     _mapDbProfileToGameData(dbProfile) {
         if (!dbProfile) return null;
 
-        // DEBUG: Log raw DB keys to verify column names
-        // console.log('[DatabaseService] Raw DB Profile Keys:', Object.keys(dbProfile)); // Reduced noise
+        // DEBUG: Log raw values to debug "missing money" issues
+        const rawMoney = dbProfile.money;
+        const rawCredits = dbProfile.credits;
+        
+        if (rawMoney !== undefined || rawCredits !== undefined) {
+             console.log(`[DatabaseService] Loading profile ${dbProfile.username}: money=${rawMoney}, credits=${rawCredits}, activeColumn=${this.moneyColumn}`);
+             
+             // Warn if potential data mismatch
+             if (this.moneyColumn === 'money' && !rawMoney && rawCredits > 0) {
+                 console.warn(`[DatabaseService] ⚠️ WARNING: Active column is 'money' (value: ${rawMoney}), but 'credits' has value: ${rawCredits}. You might be editing the wrong column!`);
+             }
+             if (this.moneyColumn === 'credits' && !rawCredits && rawMoney > 0) {
+                 console.warn(`[DatabaseService] ⚠️ WARNING: Active column is 'credits' (value: ${rawCredits}), but 'money' has value: ${rawMoney}. You might be editing the wrong column!`);
+             }
+        }
 
-        // Auto-detect money column if not yet detected or if switching schemas
-        if (dbProfile.money === undefined && dbProfile.credits !== undefined) {
-            if (this.moneyColumn !== 'credits') console.log('[DatabaseService] Detected "credits" column. Switching moneyColumn.');
+        // Auto-detect money column logic with "Active Value" heuristic
+        // If both columns exist, we prefer the one that actually has money.
+        // This solves the case where a new 'money' column (default 0) shadows an existing 'credits' column (10000).
+        const hasMoney = dbProfile.money !== undefined;
+        const hasCredits = dbProfile.credits !== undefined;
+
+        if (hasMoney && hasCredits) {
+            if (Number(dbProfile.money) === 0 && Number(dbProfile.credits) > 0) {
+                if (this.moneyColumn !== 'credits') console.log('[DatabaseService] Heuristic: "money" is 0 but "credits" > 0. Switching to "credits".');
+                this.moneyColumn = 'credits';
+            } else {
+                 // Default to money if both have value or both 0, OR if money has value
+                if (this.moneyColumn !== 'money') console.log('[DatabaseService] Heuristic: Defaulting to "money" column.');
+                this.moneyColumn = 'money';
+            }
+        } else if (hasCredits) {
+            if (this.moneyColumn !== 'credits') console.log('[DatabaseService] Detected "credits" column (only). Switching moneyColumn.');
             this.moneyColumn = 'credits';
-        } else if (dbProfile.money !== undefined) {
-            if (this.moneyColumn !== 'money') console.log('[DatabaseService] Detected "money" column. Switching moneyColumn.');
+        } else if (hasMoney) {
+            if (this.moneyColumn !== 'money') console.log('[DatabaseService] Detected "money" column (only). Switching moneyColumn.');
             this.moneyColumn = 'money';
         }
 
