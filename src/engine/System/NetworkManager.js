@@ -17,23 +17,38 @@ export class NetworkManager {
         
         this.serverUrl = `${protocol}//${host}`;
         this.reconnectInterval = 5000;
+        this.maxReconnectAttempts = 10;
+        this.reconnectAttempts = 0;
+        this.isConnecting = false;
     }
 
     connect() {
         if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
             return;
         }
+        
+        if (this.isConnecting) return;
+        this.isConnecting = true;
 
         console.log(`Connecting to server at ${this.serverUrl}...`);
-        this.socket = new WebSocket(this.serverUrl);
+        
+        try {
+            this.socket = new WebSocket(this.serverUrl);
+        } catch (e) {
+            console.error('Failed to create WebSocket:', e);
+            this.isConnecting = false;
+            this._scheduleReconnect();
+            return;
+        }
 
         this.socket.onopen = () => {
             console.log('Connected to game server!');
             this.isConnected = true;
+            this.isConnecting = false;
+            this.reconnectAttempts = 0;
             document.dispatchEvent(new CustomEvent('network:connected'));
             if (this.player) {
                 this._sendAuth();
-                // Send initial location
                 this.sendMove(this.player.locationId);
             }
         };
@@ -54,16 +69,29 @@ export class NetworkManager {
             }
         };
 
-        this.socket.onclose = () => {
-            console.log('Disconnected from server.');
+        this.socket.onclose = (event) => {
+            console.log(`Disconnected from server. Code: ${event.code}, Reason: ${event.reason || 'None'}`);
             this.isConnected = false;
-            // Auto-reconnect
-            setTimeout(() => this.connect(), this.reconnectInterval);
+            this.isConnecting = false;
+            this._scheduleReconnect();
         };
 
         this.socket.onerror = (error) => {
-            console.error('WebSocket error:', error);
+            // Suppress verbose WebSocket errors in console which might show up as 'Script error'
+            console.warn('WebSocket encountered error. Connection might be unstable.');
         };
+    }
+
+    _scheduleReconnect() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            const delay = this.reconnectInterval * Math.pow(1.2, this.reconnectAttempts); // Exponential backoff
+            console.log(`Reconnecting in ${(delay/1000).toFixed(1)}s... (Attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+            setTimeout(() => this.connect(), delay);
+            this.reconnectAttempts++;
+        } else {
+            console.error('Max reconnect attempts reached. Giving up.');
+            // Optionally dispatch event to show "Connection Lost" modal
+        }
     }
 
     setPlayer(player) {

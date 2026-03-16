@@ -405,6 +405,23 @@ class DatabaseService {
         Object.keys(profile).forEach(key => profile[key] === undefined && delete profile[key]);
 
         try {
+            // 1. Fetch existing profile to protect server-authoritative fields
+            const { data: existingProfile } = await this.supabase
+                .from('profiles')
+                .select('job_data')
+                .eq('id', profile.id)
+                .single();
+
+            // 2. Merge Job Data (Server Authority for activeJob/jobEndTime)
+            const existingJobData = existingProfile?.job_data || {};
+            profile.job_data = {
+                activeJob: existingJobData.activeJob,         // PROTECTED: Server controls start/finish
+                jobEndTime: existingJobData.jobEndTime,       // PROTECTED: Server controls duration
+                jobNotified: playerData.jobNotified,          // Client UI flag
+                viewingJobBoard: playerData.viewingJobBoard   // Client UI flag
+            };
+
+            // 3. Update the profile
             const { data, error } = await this.supabase
                 .from('profiles')
                 .update(profile)

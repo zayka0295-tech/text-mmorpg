@@ -205,17 +205,92 @@ export class Game {
 
         console.log('Managers injected into Player');
 
-        // Hydrate base stats from server profile.
-        // Must happen AFTER injectManagers() (which runs _applyInitialBonuses via +=).
-        // We overwrite with the saved values so spent stat points and correct bonuses are restored.
-        // For new players these fields are null/undefined — we keep the applyInitialBonuses result.
+        // --- FULL HYDRATION BLOCK (Moved up to prevent partial state saves) ---
+        // Apply all server data BEFORE any logic that might trigger a save.
+        
         this.player.isInitialLoading = true;
+
+        // 1. Base Stats (Restore spent points)
         if (profile.baseConstitution != null) this.player._baseConstitution = profile.baseConstitution;
         if (profile.baseStrength != null)     this.player._baseStrength     = profile.baseStrength;
         if (profile.baseAgility != null)      this.player._baseAgility      = profile.baseAgility;
         if (profile.baseIntellect != null)    this.player._baseIntellect    = profile.baseIntellect;
         if (profile.statPoints != null)       this.player._statPoints       = profile.statPoints;
+
+        // 2. Inventory & Equipment
+        if (profile.inventoryData) {
+            this.player.inventoryMgr.load(profile.inventoryData.inventory, profile.inventoryData.equipment);
+        }
+
+        // 3. Health & Regeneration
+        if (profile.hp !== undefined) {
+            this.player.hp = profile.hp;
+            // Offline Regeneration
+            if (profile.lastOnline) {
+                const now = Date.now();
+                const elapsedSeconds = (now - profile.lastOnline) / 1000;
+                if (elapsedSeconds > 0 && this.player.hp < this.player.maxHp) {
+                    const regenRate = 0.1 * (this.player.constitution / 10);
+                    const healed = Math.floor(elapsedSeconds * regenRate);
+                    if (healed > 0) {
+                        const oldHp = this.player.hp;
+                        this.player.hp = Math.min(this.player.maxHp, this.player.hp + healed);
+                        console.log(`Offline regen: +${this.player.hp - oldHp} HP over ${Math.floor(elapsedSeconds)}s`);
+                    }
+                }
+            }
+        }
+
+        // 4. Job Data (Critical to set before quest generation/save)
+        this.player.activeJob = profile.activeJob || null;
+        this.player.jobEndTime = Number(profile.jobEndTime) || 0;
+        this.player.jobNotified = !!profile.jobNotified;
+        this.player.viewingJobBoard = !!profile.viewingJobBoard;
+        console.log('Hydrated Job State:', { 
+            active: this.player.activeJob, 
+            end: this.player.jobEndTime, 
+            timeLeft: this.player.jobEndTime - Date.now() 
+        });
+
+        // 5. Quests & Daily Quests
+        this.player.quests = profile.quests || {};
+        this.player.dailyQuests = profile.dailyQuests || [];
+        
+        // 6. Reputation & Alignment
+        this.player.reputation = profile.reputation || 0;
+        if (profile.reputationVotes) this.player.reputationVotes = profile.reputationVotes;
+        
+        // 7. Force & Combat
+        this.player.forcePoints = profile.forcePoints || 0;
+        this.player.unlockedForceSkills = profile.unlockedForceSkills || [];
+        this.player.activeForceSkill = profile.activeForceSkill || null;
+        if (profile.combatState) this.player.combatState = profile.combatState;
+        
+        // 8. Misc (Buffs, Ship, Avatar)
+        if (profile.buffs) this.player.buffs = profile.buffs;
+        if (profile.ship && profile.ship.id && ITEMS[profile.ship.id]) {
+            this.player.ship = profile.ship;
+        } else {
+            this.player.ship = null;
+        }
+        if (profile.avatar) {
+            this.player.avatar = profile.avatar;
+        } else if (profile.appearance && profile.appearance.avatar) {
+            this.player.avatar = profile.appearance.avatar;
+        }
+
         this.player.isInitialLoading = false;
+        // --- END HYDRATION ---
+
+        // Recalculate derived stats after full load
+        this.player._emit('stats-changed');
+
+        // Check Daily Quests (Safe to save now because activeJob is loaded)
+        if (!this.player.dailyQuests || this.player.dailyQuests.length === 0) {
+            console.log('Generating daily quests for hydrated player...');
+            this.player.dailyQuests = QuestGenerator.generateDailyQuests();
+            this.player.save();
+        }
 
         // Note: NetworkManager is already connected.
 
@@ -539,7 +614,7 @@ export class Game {
             import('./Data/locations.js').then(module => {
                 const loc = module.LOCATIONS[this.player.locationId];
                 if (loc) this.audioManager.playPlanetMusic(loc.planetId);
-            });
+            }).catch(e => console.warn('Failed to load locations for music:', e));
         }
 
         // При перемещениях (через Proxy или setInterval проверку)
@@ -551,7 +626,7 @@ export class Game {
                     lastPlanetId = loc.planetId;
                     this.audioManager.playPlanetMusic(loc.planetId);
                 }
-            });
+            }).catch(e => { /* suppress repetitive fetch errors */ });
         }, 2000);
     }
 
@@ -653,15 +728,16 @@ export class Game {
         const devBtnItem = document.getElementById('btn-dev-item');
 
         //Заполняем список предметов
-        import('./Data/items.js').then(module => {
-            if (!devInputItem) return;
-            const ITEMS = module.ITEMS;
-            let optionsHtml = '';
-            for (const key in ITEMS) {
-                optionsHtml += `<option value="${key}">${ITEMS[key].name}</option>`;
-            }
-            devInputItem.innerHTML = optionsHtml;
-        });
+        if (devInputItem) {
+            import('./Data/items.js').then(module => {
+                const ITEMS = module.ITEMS;
+                let optionsHtml = '';
+                for (const key in ITEMS) {
+                    optionsHtml += `<option value="${key}">${ITEMS[key].name}</option>`;
+                }
+                devInputItem.innerHTML = optionsHtml;
+            }).catch(e => console.warn('Failed to load items for dev mode:', e));
+        }
 
         const forceSaveAndUiUpdate = (msg) => {
             this.saveManager.save();
