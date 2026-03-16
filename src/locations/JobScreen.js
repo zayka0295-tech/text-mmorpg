@@ -173,10 +173,12 @@ export class JobScreen {
         const jobEnd = Number(this.player.jobEndTime) || 0;
         const leftMs = jobEnd - Date.now();
         if (leftMs <= 0) {
-            // Main.js handles the actual completion logic globally
-            // We just stop updating the UI until it refreshes
             this._stopTicker();
-            timerEl.textContent = "✅ Готово!";
+            timerEl.textContent = "✅ Завершение...";
+            // Auto-complete — send claim request to server
+            if (this.player.jobMgr) {
+                this.player.jobMgr.completeActiveJob();
+            }
             return;
         }
 
