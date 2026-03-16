@@ -349,16 +349,17 @@ async function handleMessage(ws, message, metadata) {
                                  error: profileResult?.error
                              });
                          } else {
-                             // Inject isOnline status if player is actually connected but we loaded from DB (e.g. they are in a different zone or just connected)
-                             // This handles the edge case where hasOpenConnectionForPlayer check might be tricky with ID vs Name lookups
                              const profileData = profileResult.data;
                              const isOnline = hasOpenConnectionForPlayer(profileData.id);
                              profileData.isOnline = isOnline;
 
+                             // Include the requester's existing vote so the UI can highlight the active button
+                             const myVote = metadata.dbId ? await db.getMyVote(metadata.dbId, profileData.id) : null;
+
                              ws.send(JSON.stringify({
                                  type: 'profile_data',
-                                 senderId: profileData.id, // Always send back the real UUID
-                                 data: profileData
+                                 senderId: profileData.id,
+                                 data: { ...profileData, myVote }
                              }));
                          }
                      } catch (error) {
@@ -372,6 +373,15 @@ async function handleMessage(ws, message, metadata) {
                  }
              }
              break;
+
+        case 'pvp_lock_start':
+            if (message.targetId) {
+                sendTo(message.targetId, {
+                    type: 'pvp_lock_start',
+                    attackerName: metadata.name || 'Неизвестный'
+                });
+            }
+            break;
 
         case 'combat_result':
             if (message.targetId) {
@@ -602,84 +612,25 @@ async function handleMessage(ws, message, metadata) {
             break;
 
         case 'reputation_vote':
-            if (message.targetId) {
-                const voterName = message.senderName || 'Anonymous';
-                const voterId = getStablePlayerId(metadata);
-
-                // Per-voter-per-target 12-hour cooldown to prevent vote inflation
-                const cooldownKey = `${voterName}:${message.targetId}`;
-                const lastChange = reputationVoteCooldowns.get(cooldownKey) || 0;
-                const cooldownRemaining = REPUTATION_VOTE_COOLDOWN_MS - (Date.now() - lastChange);
-                if (cooldownRemaining > 0) {
-                    const hoursLeft = Math.ceil(cooldownRemaining / 3600000);
-                    ws.send(JSON.stringify({
-                        type: 'reputation_vote_result',
-                        ok: false,
-                        targetId: message.targetId,
-                        voteType: message.voteType,
-                        error: `Следующий голос можно поставить через ${hoursLeft} ч.`
-                    }));
-                    break;
-                }
-                reputationVoteCooldowns.set(cooldownKey, Date.now());
-                
+            if (!metadata.isAnonymous && metadata.dbId && message.targetId) {
                 try {
                     if (!message.voteType || !['up', 'down'].includes(message.voteType)) {
-                        ws.send(JSON.stringify({
-                            type: 'reputation_vote_result',
-                            ok: false,
-                            targetId: message.targetId,
-                            voteType: message.voteType,
-                            error: 'Invalid vote type'
-                        }));
+                        ws.send(JSON.stringify({ type: 'reputation_vote_result', ok: false, targetId: message.targetId, voteType: message.voteType, error: 'Invalid vote type' }));
                         break;
                     }
 
-                    const result = await db.voteReputation(message.targetId, voterName, message.voteType);
-                    
-                    if (result.error) {
-                        console.error('Reputation vote error:', {
-                            error: result.error,
-                            targetId: message.targetId,
-                            voteType: message.voteType,
-                            voterName,
-                            senderId: getStablePlayerId(metadata)
-                        });
-                        ws.send(JSON.stringify({
-                            type: 'reputation_vote_result',
-                            ok: false,
-                            targetId: message.targetId,
-                            voteType: message.voteType,
-                            error: result.error
-                        }));
-                    } else {
-                        const { reputation, voteType } = result.data;
+                    const result = await db.voteReputation(message.targetId, metadata.dbId, message.voteType);
 
-                        const updateMsg = {
-                            type: 'reputation_update',
-                            newReputation: reputation,
-                            voteType: voteType,
-                            voterName: voterName
-                        };
-                        
-                        sendTo(message.targetId, updateMsg);
-                        ws.send(JSON.stringify({
-                            type: 'reputation_vote_result',
-                            ok: true,
-                            targetId: message.targetId,
-                            voteType,
-                            newReputation: reputation
-                        }));
+                    if (result.error) {
+                        ws.send(JSON.stringify({ type: 'reputation_vote_result', ok: false, targetId: message.targetId, voteType: message.voteType, error: result.error }));
+                    } else {
+                        const { reputation, activeVote } = result.data;
+                        // Notify the target player their reputation changed
+                        sendTo(message.targetId, { type: 'reputation_update', newReputation: reputation });
+                        ws.send(JSON.stringify({ type: 'reputation_vote_result', ok: true, targetId: message.targetId, activeVote, newReputation: reputation }));
                     }
                 } catch (e) {
-                    console.error('Error processing reputation vote:', {
-                        message: e?.message,
-                        stack: e?.stack,
-                        targetId: message.targetId,
-                        voteType: message.voteType,
-                        voterName,
-                        senderId: getStablePlayerId(metadata)
-                    });
+                    console.error('Error processing reputation vote:', e?.message);
                     ws.send(JSON.stringify({
                         type: 'reputation_vote_result',
                         ok: false,

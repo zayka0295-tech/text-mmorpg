@@ -427,15 +427,21 @@ export class CombatScreen {
         }
 
         this.ui.logMessage(result.msg);
-        this.render();
+        this.ui.updateHpBars(this.player.hp, this.player.maxHp, this.monster.hp, this.monster.maxHp);
         this.lastTurnTime = Date.now();
         this.saveCombatState();
+
+        // If monster died from force skill — end combat immediately
+        if (this.monster.hp <= 0) {
+            setTimeout(() => this.processVictory(), 1000);
+            return;
+        }
 
         //Сила - free action. Возвращаем игроку ход и даем атаковать дальше.
         setTimeout(() => {
             this.isProcessingAttack = false;
             this.isPlayerTurn = true;
-            this.ui.logMessage(`${result.msg}<br>Продолжайте атаку!`);
+            this.render();
         }, 1000);
     }
 

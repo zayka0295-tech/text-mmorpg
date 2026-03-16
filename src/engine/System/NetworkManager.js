@@ -149,6 +149,10 @@ export class NetworkManager {
         this.send('combat_result', { targetId, data: resultData });
     }
 
+    sendPvpLockStart(targetId) {
+        this.send('pvp_lock_start', { targetId });
+    }
+
     sendRobResult(targetId, resultData) {
         this.send('rob_result', { targetId, data: resultData });
     }
@@ -209,8 +213,22 @@ export class NetworkManager {
             case 'profile_data':
                 document.dispatchEvent(new CustomEvent('network:profile_data', { detail: message }));
                 break;
+            case 'pvp_lock_start':
+                // Attacker started combat against us — lock our movement
+                if (this.player) {
+                    const lockObj = JSON.stringify({ attacker: message.attackerName || '???', ts: Date.now() });
+                    try { localStorage.setItem(`sw_pvp_combat_lock_${this.player.name}`, lockObj); } catch(e) {}
+                    document.dispatchEvent(new CustomEvent('game:notification', {
+                        detail: { msg: `⚔️ ${message.attackerName || 'Кто-то'} вступил с вами в бой! Вы не можете перемещаться.`, type: 'error' }
+                    }));
+                }
+                break;
             case 'combat_result':
                 document.dispatchEvent(new CustomEvent('network:combat_result', { detail: message }));
+                // Remove combat lock now that fight is resolved
+                if (this.player) {
+                    try { localStorage.removeItem(`sw_pvp_combat_lock_${this.player.name}`); } catch(e) {}
+                }
                 // Apply the result to the local player if we are the target
                 if (this.player && message.data) {
                     const d = message.data;

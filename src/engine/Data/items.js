@@ -26,8 +26,9 @@ export function getItemData(itemId, player = null) {
     //Если передан объект инвентаря/экипировки вида { id:'...', amount: 1, item: {...} }
     let searchId = itemId;
     if (itemId && typeof itemId === 'object' && itemId.id) {
-        if (itemId.item && itemId.item.isGenerated) {
-            return itemId.item;
+        const embeddedItem = itemId.item || itemId.itemData;
+        if (embeddedItem && embeddedItem.isGenerated) {
+            return embeddedItem;
         }
         searchId = itemId.id;
     }
@@ -39,19 +40,21 @@ export function getItemData(itemId, player = null) {
     //Сгенерированные предметы хранятся прямо на инвентаре игрока как объекты, либо в экипировке.
     if (player) {
         if (player.inventory) {
-            const invItem = player.inventory.find(i => i.id === searchId || (i.item && i.item.id === searchId));
-            if (invItem && invItem.item && invItem.item.isGenerated) {
-                return invItem.item; //Возвращаем сохраненные стать и название
+            const invItem = player.inventory.find(i => i.id === searchId || (i.item && i.item.id === searchId) || (i.itemData && i.itemData.id === searchId));
+            const invItemData = invItem?.item || invItem?.itemData;
+            if (invItem && invItemData && invItemData.isGenerated) {
+                return invItemData;
             }
         }
 
         if (player.equipment) {
             for (let slot in player.equipment) {
                 const eqItem = player.equipment[slot];
-                if (eqItem && (eqItem.id === searchId || (eqItem.item && eqItem.item.id === searchId) || eqItem === searchId)) {
+                if (eqItem && (eqItem.id === searchId || (eqItem.item && eqItem.item.id === searchId) || (eqItem.itemData && eqItem.itemData.id === searchId) || eqItem === searchId)) {
                     //Если предмет является кастомным объектом внутри
-                    if (eqItem.item && eqItem.item.isGenerated) {
-                        return eqItem.item;
+                    const eqEmbedded = eqItem.item || eqItem.itemData;
+                    if (eqEmbedded && eqEmbedded.isGenerated) {
+                        return eqEmbedded;
                     }
                     //Если сама запись уже готова сгенерированным предметом (как у ботов)
                     if (eqItem.isGenerated) {

@@ -182,66 +182,114 @@ class DatabaseService {
     }
 
     /**
-     * Handle reputation voting
-     * @param {string} targetId
-     * @param {string} voterName
+     * Handle reputation voting using the reputation_votes table (UUID-keyed, no duplicates)
+     * @param {string} targetId - UUID of target profile
+     * @param {string} voterId  - UUID of the voter (from session)
      * @param {string} voteType 'up' or 'down'
      * @returns {Promise<{data, error}>}
      */
-    async voteReputation(targetId, voterName, voteType) {
+    async voteReputation(targetId, voterId, voteType) {
         if (!this.supabase) return { error: 'Database not configured' };
 
         try {
-            if (!targetId || !voterName || !['up', 'down'].includes(voteType)) {
+            if (!targetId || !voterId || !['up', 'down'].includes(voteType)) {
                 return { error: 'Invalid reputation vote payload' };
             }
+            if (targetId === voterId) {
+                return { error: 'Cannot vote for yourself' };
+            }
 
+            // 1. Check existing vote
+            const { data: existing } = await this.supabase
+                .from('reputation_votes')
+                .select('vote_type')
+                .eq('voter_id', voterId)
+                .eq('target_id', targetId)
+                .maybeSingle();
+
+            // 2. Fetch current reputation
             const { data: profile, error: fetchError } = await this.supabase
                 .from('profiles')
-                .select('id, reputation, reputation_votes')
+                .select('id, reputation')
                 .eq('id', targetId)
                 .single();
 
             if (fetchError || !profile) {
-                if (fetchError) {
-                    this._logDbError('voteReputation.fetchTarget', fetchError, { targetId, voterName, voteType });
-                }
+                this._logDbError('voteReputation.fetchTarget', fetchError, { targetId, voterId, voteType });
                 return { error: 'Target not found' };
             }
 
-            const votes = { ...(profile.reputation_votes || {}) };
             let reputation = profile.reputation || 0;
-            const prevVote = votes[voterName];
+            let reputationChange = 0;
+            let activeVote = voteType; // what vote is now active (null = removed)
 
-            if (prevVote === voteType) {
-                delete votes[voterName];
-                reputation += (voteType === 'up' ? -1 : 1);
-            } else {
-                if (prevVote) {
-                    reputation += (prevVote === 'up' ? -1 : 1);
+            if (existing) {
+                if (existing.vote_type === voteType) {
+                    // Same vote → unvote (remove)
+                    const { error: delErr } = await this.supabase
+                        .from('reputation_votes')
+                        .delete()
+                        .eq('voter_id', voterId)
+                        .eq('target_id', targetId);
+                    if (delErr) return { error: delErr.message };
+                    reputationChange = voteType === 'up' ? -1 : 1;
+                    activeVote = null;
+                } else {
+                    // Opposite vote → switch (±2)
+                    const { error: updErr } = await this.supabase
+                        .from('reputation_votes')
+                        .update({ vote_type: voteType })
+                        .eq('voter_id', voterId)
+                        .eq('target_id', targetId);
+                    if (updErr) return { error: updErr.message };
+                    reputationChange = voteType === 'up' ? 2 : -2;
                 }
-                votes[voterName] = voteType;
-                reputation += (voteType === 'up' ? 1 : -1);
+            } else {
+                // New vote
+                const { error: insErr } = await this.supabase
+                    .from('reputation_votes')
+                    .insert({ voter_id: voterId, target_id: targetId, vote_type: voteType });
+                if (insErr) return { error: insErr.message };
+                reputationChange = voteType === 'up' ? 1 : -1;
             }
+
+            reputation += reputationChange;
 
             const { error: updateError } = await this.supabase
                 .from('profiles')
-                .update({ 
-                    reputation: reputation, 
-                    reputation_votes: votes,
-                    updated_at: new Date()
-                })
+                .update({ reputation, updated_at: new Date() })
                 .eq('id', targetId);
 
             if (updateError) {
-                this._logDbError('voteReputation.updateTarget', updateError, { targetId, voterName, voteType, reputation });
+                this._logDbError('voteReputation.updateTarget', updateError, { targetId, voterId, voteType, reputation });
                 return { error: updateError.message };
             }
 
-            return { data: { reputation, voteType }, error: null };
+            return { data: { reputation, activeVote }, error: null };
         } catch (error) {
-            this._logDbError('voteReputation.catch', error, { targetId, voterName, voteType });
+            this._logDbError('voteReputation.catch', error, { targetId, voterId, voteType });
             return { error: 'Internal reputation vote error' };
+        }
+    }
+
+    /**
+     * Get the current player's vote for a specific target
+     * @param {string} voterId - UUID of the voter
+     * @param {string} targetId - UUID of the target
+     * @returns {Promise<string|null>} 'up', 'down', or null
+     */
+    async getMyVote(voterId, targetId) {
+        if (!this.supabase || !voterId || !targetId) return null;
+        try {
+            const { data } = await this.supabase
+                .from('reputation_votes')
+                .select('vote_type')
+                .eq('voter_id', voterId)
+                .eq('target_id', targetId)
+                .maybeSingle();
+            return data?.vote_type || null;
+        } catch (e) {
+            return null;
         }
     }
 

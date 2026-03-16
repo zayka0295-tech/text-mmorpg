@@ -267,6 +267,11 @@ export class PvPManager {
             localStorage.setItem(`sw_pvp_combat_lock_${targetBotName}`, lockObj);
         } catch(e) {}
 
+        // Notify the target player via network so their client locks movement too
+        if (playerSelf.networkMgr) {
+            playerSelf.networkMgr.sendPvpLockStart(targetId);
+        }
+
         pvpMonster.onCombatEndImmediate = (result, damageTakenByDefender) => {
             this.resolveCombatEnd(playerSelf, targetId, result, damageTakenByDefender, stolenAmount, pvpMonster);
         };

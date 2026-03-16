@@ -92,9 +92,8 @@ export class PlayerModal {
         });
 
         document.addEventListener('network:reputation_vote_result', (e) => {
-            const { ok, targetId, voteType } = e.detail;
-            
-            // Reset voting state if it was us who voted
+            const { ok, targetId, activeVote } = e.detail;
+
             if (this.isVoting) {
                 this.isVoting = false;
                 this._updateVoteButtonsState(false);
@@ -102,29 +101,15 @@ export class PlayerModal {
 
             if (!ok || !this.currentTarget || this.currentTarget.id !== targetId) return;
 
-            const nextVotes = { ...(this.currentTarget.reputationVotes || {}) };
-            const prevVote = nextVotes[this.playerSelf.name];
-            let nextReputation = this.currentTarget.reputation || 0;
-
-            if (prevVote === voteType) {
-                delete nextVotes[this.playerSelf.name];
-                nextReputation += (voteType === 'up' ? -1 : 1);
-            } else {
-                if (prevVote) {
-                    nextReputation += (prevVote === 'up' ? -1 : 1);
-                }
-                nextVotes[this.playerSelf.name] = voteType;
-                nextReputation += (voteType === 'up' ? 1 : -1);
-            }
-
             this.currentTarget = {
                 ...this.currentTarget,
-                reputation: typeof e.detail.newReputation === 'number' ? e.detail.newReputation : nextReputation,
-                reputationVotes: nextVotes
+                reputation: typeof e.detail.newReputation === 'number' ? e.detail.newReputation : this.currentTarget.reputation,
+                myVote: activeVote // null = unvoted, 'up'/'down' = active vote
             };
 
             this._render(this.currentTarget);
-            this._showResult(voteType === 'up' ? '👍 Репутация повышена' : '👎 Репутация понижена', 'success');
+            const label = activeVote === 'up' ? '👍 Голос ЗА' : activeVote === 'down' ? '👎 Голос ПРОТИВ' : '↩️ Голос отменён';
+            this._showResult(label, 'success');
         });
     }
 
@@ -441,8 +426,8 @@ export class PlayerModal {
                                     <span>Репутация: <b style="font-size: 14px;">${target.reputation || 0}</b></span>
                                 </div>
                                 <div style="display: flex; gap: 8px; margin-top: 4px;">
-                                    <button id="pm-rep-up" class="pm-rep-btn ${target.reputationVotes?.[this.playerSelf.name] ==='up' ? 'active-up' : ''}">👍</button>
-                                    <button id="pm-rep-down" class="pm-rep-btn ${target.reputationVotes?.[this.playerSelf.name] === 'down' ? 'active-down' : ''}">👎</button>
+                                    <button id="pm-rep-up" class="pm-rep-btn ${target.myVote === 'up' ? 'active-up' : ''}">👍</button>
+                                    <button id="pm-rep-down" class="pm-rep-btn ${target.myVote === 'down' ? 'active-down' : ''}">👎</button>
                                 </div>
                             </div>
                         </div>
