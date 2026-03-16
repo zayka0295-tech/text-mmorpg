@@ -23,6 +23,7 @@ export class QuestsScreen {
             }
         });
 
+        // Listen for quest rewards from server
         document.addEventListener('network:quest_result', (e) => {
             const { ok, error, profile, rewards } = e.detail;
             if (ok && profile) {
