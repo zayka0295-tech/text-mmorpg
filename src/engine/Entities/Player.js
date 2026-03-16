@@ -285,6 +285,10 @@ export class Player extends Entity {
   }
   set alignment(val) {
     const old = this._alignment;
+    this._alignment = val; 
+    
+    // Aggressive reset disabled to allow dev mode and persistent alignment
+    /*
     if (this.title === "Контрабандист") {
       const hasActiveQuest =
         this.quests &&
@@ -298,6 +302,8 @@ export class Player extends Entity {
     } else {
       this._alignment = val;
     }
+    */
+    
     if (old !== this._alignment) this._emit('alignment-changed');
   }
 

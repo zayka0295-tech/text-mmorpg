@@ -258,6 +258,7 @@ export class Game {
         
         // 6. Reputation & Alignment
         this.player.reputation = profile.reputation || 0;
+        this.player.alignment = profile.alignment || 0; // Fix: Hydrate alignment!
         if (profile.reputationVotes) this.player.reputationVotes = profile.reputationVotes;
         
         // 7. Force & Combat
