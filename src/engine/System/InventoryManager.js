@@ -14,6 +14,30 @@ export class InventoryManager {
             [ITEM_TYPES.ACCESSORY]: null,
             [ITEM_TYPES.ARTIFACT]: null,
         };
+        this._initListeners();
+    }
+
+    _initListeners() {
+        document.addEventListener('network:inventory_result', (e) => {
+            const { ok, operation, error, profile, itemId, slot } = e.detail;
+            if (ok && profile) {
+                // Sync state from server
+                if (profile.inventoryData) {
+                    this.load(profile.inventoryData.inventory, profile.inventoryData.equipment);
+                }
+                this.player._emit('inventory-changed');
+                this.player._emit('stats-changed');
+                this.player._emit('hp-changed');
+
+                if (operation === 'equip') {
+                    // Optional: show notification or sound
+                }
+            } else {
+                // Show error in UI (e.g. via notification)
+                const msg = error || 'Ошибка инвентаря';
+                document.dispatchEvent(new CustomEvent("game:notification", { detail: { msg, type: 'error' } }));
+            }
+        });
     }
 
     load(inventoryData, equipmentData) {
@@ -40,6 +64,9 @@ export class InventoryManager {
     }
 
     addItem(itemOrId, amount = 1) {
+        // Only for local simulation or non-critical items. 
+        // Critical items should be added by server sync via market/jobs/loot.
+        // For now, keep as helper for client-side predictions or legacy calls.
         if (isNaN(amount) || amount <= 0) return false;
 
         const isObject = typeof itemOrId === "object" && itemOrId !== null;
@@ -60,6 +87,7 @@ export class InventoryManager {
     }
 
     removeItem(itemId, amount = 1) {
+        // Client-side helper, mostly superseded by server state sync
         if (isNaN(amount) || amount <= 0) return false;
 
         const index = this.items.findIndex((i) => i.id === itemId);
@@ -79,62 +107,18 @@ export class InventoryManager {
     }
 
     equipItem(itemId) {
-        const itemData = getItemData(itemId, this.player);
-        if (!itemData) return { success: false, error: "Предмет не найден" };
-
-        if (itemData.reqAlignment === "light" && (this.player.alignment || 0) <= 0) {
-            return {
-                success: false,
-                error: "Только Светлые (Джедаи) могут одеть это!",
-            };
+        // Check basic requirements locally for immediate feedback (optional)
+        // But main logic is network call.
+        if (this.player.networkMgr) {
+            this.player.networkMgr.send('inventory_equip', { itemId });
+            return { success: true, pending: true };
         }
-        if (itemData.reqAlignment === "dark" && (this.player.alignment || 0) >= 0) {
-            return {
-                success: false,
-                error: "Только Темные (Ситхи) могут одеть это!",
-            };
-        }
-
-        if (itemData.reqTitle) {
-            const allowedJediTitles = ['Падаван', 'Джедай'];
-            const allowedSithTitles = ['Аколит', 'Ситх'];
-            if (itemData.reqTitle === 'Падаван' && !allowedJediTitles.includes(this.player.title)) {
-                return {
-                    success: false,
-                    error: "Нужно звание Падаван (или выше), чтобы носить это!",
-                };
-            }
-        }
-
-        const itemIndex = this.items.findIndex(
-            (i) => i.id === itemId && i.amount > 0,
-        );
-        if (itemIndex === -1) return { success: false, error: "Нет в инвентаре" };
-
-        const slot = itemData.type;
-
-        if (this.equipment[slot]) {
-            this.unequipItem(slot);
-        }
-
-        const itemObj = JSON.parse(JSON.stringify(this.items[itemIndex]));
-        itemObj.amount = 1;
-
-        this.removeItem(itemId, 1);
-        this.equipment[slot] = itemObj;
-
-        if (this.player.hp > this.player.maxHp) this.player.hp = this.player.maxHp;
-        this.player.save();
-        return { success: true };
+        return { success: false, error: "Нет сети" };
     }
 
     unequipItem(slot) {
-        if (this.equipment[slot]) {
-            const itemObj = this.equipment[slot];
-            this.addItem(itemObj.item || itemObj.id, 1);
-            this.equipment[slot] = null;
-            if (this.player.hp > this.player.maxHp) this.player.hp = this.player.maxHp;
-            this.player.save();
+        if (this.player.networkMgr) {
+            this.player.networkMgr.send('inventory_unequip', { slot });
             return true;
         }
         return false;

@@ -556,6 +556,54 @@ async function handleMessage(ws, message, metadata) {
             }
             break;
 
+        case 'inventory_equip':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'inventory_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const equipRes = await db.equipItem(metadata.dbId, message.itemId);
+                if (equipRes.error) {
+                    ws.send(JSON.stringify({ type: 'inventory_result', ok: false, operation: 'equip', error: equipRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'inventory_result', 
+                        ok: true, 
+                        operation: 'equip', 
+                        profile: equipRes.data,
+                        itemId: message.itemId
+                    }));
+                }
+            } catch (e) {
+                console.error('Inventory equip error:', e);
+                ws.send(JSON.stringify({ type: 'inventory_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
+        case 'inventory_unequip':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'inventory_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            try {
+                const unequipRes = await db.unequipItem(metadata.dbId, message.slot);
+                if (unequipRes.error) {
+                    ws.send(JSON.stringify({ type: 'inventory_result', ok: false, operation: 'unequip', error: unequipRes.error }));
+                } else {
+                    ws.send(JSON.stringify({ 
+                        type: 'inventory_result', 
+                        ok: true, 
+                        operation: 'unequip', 
+                        profile: unequipRes.data,
+                        slot: message.slot
+                    }));
+                }
+            } catch (e) {
+                console.error('Inventory unequip error:', e);
+                ws.send(JSON.stringify({ type: 'inventory_result', ok: false, error: 'Internal server error' }));
+            }
+            break;
+
         case 'reputation_vote':
             if (message.targetId) {
                 const voterName = message.senderName || 'Anonymous';
