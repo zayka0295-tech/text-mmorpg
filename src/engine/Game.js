@@ -565,12 +565,19 @@ export class Game {
 
         //Сохранение при закрытии вкладки
         window.addEventListener('beforeunload', () => {
-            this.saveManager.save();
-            // Network save
-            const p = this.player;
-            // Use PersistenceManager to gather data if possible, or construct it
-            // For now, minimal safe save or rely on periodic autosaves.
-            // A blocking network call is hard on beforeunload.
+            // Local storage save is fine (for backup)
+            this.saveManager.save(); 
+            
+            // CRITICAL: DO NOT send network save on unload!
+            // This causes the "Refresh Trap": 
+            // 1. User edits DB (sets 10k money).
+            // 2. User refreshes page.
+            // 3. This handler fires. Client still has 0 money.
+            // 4. Client sends "save 0 money" to server.
+            // 5. Server overwrites 10k with 0.
+            // 6. Page reloads, user sees 0.
+            
+            // this.player.save(true); // <--- DISABLED
         });
 
         // Защита от мульти-вкладок (Дюпы предметов и кредитов)
