@@ -66,6 +66,7 @@ export class Player extends Entity {
      this.reputation = 0;
      this.reputationVotes = {};
      this.isInitialLoading = false;
+     this.hasUnsavedChanges = false; // Dirty flag to prevent unnecessary saves
   }
 
   injectManagers(managers) {
@@ -167,6 +168,7 @@ export class Player extends Entity {
 
   _emit(event) {
     if (this.isInitialLoading) return;
+    this.hasUnsavedChanges = true; // Mark as dirty on any change
     document.dispatchEvent(new CustomEvent(`player:${event}`, { detail: { player: this } }));
   }
 
@@ -229,9 +231,15 @@ export class Player extends Entity {
     }
   }
 
-  save() {
+  save(force = false) {
+    // Prevent saving if no changes occurred (solves "Refresh Trap" / overwrite of DB edits)
+    if (!this.hasUnsavedChanges && !force) return;
+
     if (this.persistenceMgr) this.persistenceMgr.save();
-    if (this.networkMgr) this.networkMgr.saveProfile(this.getFullStats());
+    if (this.networkMgr) {
+        this.networkMgr.saveProfile(this.getFullStats());
+        this.hasUnsavedChanges = false; // Reset dirty flag after send
+    }
   }
 
   load() {

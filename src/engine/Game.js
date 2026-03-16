@@ -286,6 +286,13 @@ export class Game {
         // Recalculate derived stats after full load
         this.player._emit('stats-changed');
 
+        // CRITICAL: Reset dirty flag after full initialization.
+        // This ensures we don't immediately save back what we just loaded,
+        // which prevents overwriting the server DB with potential hydration errors
+        // or stale defaults unless the user actually DOES something.
+        this.player.hasUnsavedChanges = false;
+        console.log('Game started. Dirty flag reset. Ready for action.');
+
         // Check Daily Quests (Safe to save now because activeJob is loaded)
         if (!this.player.dailyQuests || this.player.dailyQuests.length === 0) {
             console.log('Generating daily quests for hydrated player...');
