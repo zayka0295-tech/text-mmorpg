@@ -15,7 +15,7 @@ export class CombatLogic {
         if (!this.isPlayerTurn || this.isProcessingAttack) return false;
 
         this.isProcessingAttack = true;
-        this.currentAttackDamage = this.player.attack;
+        this.currentAttackDamage = this.player.attack || 0;
 
         // Розрахунок критичного удару
         const isCrit = Math.random() < (this.player.critChance / 100);
@@ -129,7 +129,7 @@ export class CombatLogic {
         }
 
         // Логіка атаки монстра (спрощена)
-        const damage = Math.max(1, this.monster.attack - Math.floor(this.player.defense * 0.5));
+        const damage = Math.max(1, (this.monster.attack || 0) - Math.floor((this.player.defense || 0) * 0.5));
         const actualDamage = this.player.takeDamage(damage);
 
         return {

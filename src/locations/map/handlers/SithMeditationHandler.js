@@ -2,6 +2,7 @@
 //SITH MEDITATION HANDLER — Зал Церемонии на Коррибане
 // ==========================================
 import { Modals } from '../../../ui/Modals.js';
+import { Notifications } from '../../../ui/Notifications.js';
 
 export class SithMeditationHandler {
     constructor(player) {

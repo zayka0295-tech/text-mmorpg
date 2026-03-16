@@ -227,10 +227,10 @@ export class PvPManager {
             []
         );
         // Overwrite the level-generated stats with the actual target stats
-        pvpMonster.maxHp = target.maxHp;
-        pvpMonster.hp = target.hp; // start with their current hurt HP
-        pvpMonster.attack = target.attack;
-        pvpMonster.defense = target.defense;
+        pvpMonster.maxHp = target.maxHp || 100;
+        pvpMonster.hp = target.hp || target.maxHp || 100;
+        pvpMonster.attack = target.attack || 0;
+        pvpMonster.defense = target.defense || 0;
         pvpMonster.constitution = target.constitution || 10;
         pvpMonster.strength = target.strength || 10;
         pvpMonster.agility = target.agility || 10;

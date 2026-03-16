@@ -451,7 +451,7 @@ class DatabaseService {
                 inventory[existingItemIndex].amount = (inventory[existingItemIndex].amount || 1) + amount;
             } else {
                 if (customItemData) {
-                    inventory.push({ id: itemId, amount: amount, itemData: customItemData });
+                    inventory.push({ id: itemId, amount: amount, item: customItemData });
                 } else {
                     inventory.push({ id: itemId, amount: amount });
                 }
@@ -886,9 +886,9 @@ class DatabaseService {
             // Server-side requirement check?
             // Ideally yes. We need item definitions.
             let itemDef = null;
-            if (invItem.item) {
-                // Generated item
-                itemDef = invItem.item;
+            if (invItem.item || invItem.itemData) {
+                // Generated item (support both storage keys)
+                itemDef = invItem.item || invItem.itemData;
             } else {
                 try {
                     const ITEMS = require('./data/items');
@@ -927,7 +927,7 @@ class DatabaseService {
 
             // Set new equipment
             // Store minimal data or full object? Client expects object with ID and potentially 'item' property if generated.
-            equipment[slot] = { id: itemId, amount: 1, item: invItem.item };
+            equipment[slot] = { id: itemId, amount: 1, item: itemDef };
 
             const { data: updatedProfile, error: updateError } = await this.supabase
                 .from('profiles')

@@ -211,6 +211,24 @@ export class NetworkManager {
                 break;
             case 'combat_result':
                 document.dispatchEvent(new CustomEvent('network:combat_result', { detail: message }));
+                // Apply the result to the local player if we are the target
+                if (this.player && message.data) {
+                    const d = message.data;
+                    if (typeof d.hpLost === 'number' && d.hpLost > 0) {
+                        this.player.hp = Math.max(0, (this.player.hp || 0) - d.hpLost);
+                        this.player._emit?.('hp-changed');
+                    }
+                    if (typeof d.stolen === 'number' && d.stolen > 0) {
+                        this.player.money = Math.max(0, (this.player.money || 0) - d.stolen);
+                        this.player._emit?.('money-changed');
+                    }
+                    if (this.player.save) this.player.save();
+                    if (d.message) {
+                        document.dispatchEvent(new CustomEvent('game:notification', {
+                            detail: { msg: d.message, type: d.result === 'defeat' ? 'error' : 'warning' }
+                        }));
+                    }
+                }
                 break;
             case 'rob_result':
                 document.dispatchEvent(new CustomEvent('network:rob_result', { detail: message }));
