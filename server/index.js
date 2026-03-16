@@ -120,6 +120,10 @@ async function sendZonePopulation(ws, locationId) {
 async function handleMessage(ws, message, metadata) {
     // Only profile_data is pure pass-through. Other targetId messages need handler logic.
     if (message.type === 'profile_data' && message.targetId) {
+        // Sender is clearly online — inject isOnline: true so the receiver sees correct status
+        if (message.data && typeof message.data === 'object') {
+            message.data.isOnline = true;
+        }
         sendTo(message.targetId, message);
         return;
     }

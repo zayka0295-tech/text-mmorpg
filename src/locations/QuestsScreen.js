@@ -278,39 +278,56 @@ export class QuestsScreen {
         this._tickTimer();
     }
 
-_startTimer() {
-    this._stopTimer();
-    this._timerInterval = setInterval(() => this._tickTimer(), 1000);
-}
-
-_stopTimer() {
-    if (this._timerInterval) {
-        clearInterval(this._timerInterval);
-        this._timerInterval = null;
+    attachEventListeners() {
+        const claimBtns = this.container.querySelectorAll('.btn-claim-quest');
+        claimBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const questId = e.target.getAttribute('data-id');
+                const quest = this.player.dailyQuests && this.player.dailyQuests.find(q => q.id === questId);
+                if (quest && quest.isCompleted && !quest.isRewardClaimed) {
+                    if (e.target.disabled) return;
+                    e.target.disabled = true;
+                    if (this.player.networkMgr) {
+                        this.player.networkMgr.send('quest_claim', { questId });
+                    }
+                }
+            });
+        });
     }
-}
 
-_tickTimer() {
-    const el = document.getElementById('quest-reset-timer');
-    if (!el) return;
-
-    if (!this.saveManager) { el.textContent = '--:--:--'; return; }
-
-    const timeLeft = this.saveManager.getTimeUntilQuestReset();
-    if (!timeLeft) { el.textContent = '--:--:--'; return; }
-
-    const h = String(timeLeft.h).padStart(2, '0');
-    const m = String(timeLeft.m).padStart(2, '0');
-    const s = String(timeLeft.s).padStart(2, '0');
-    el.textContent = h + ':' + m + ':' + s;
-
-    if (timeLeft.h === 0 && timeLeft.m < 60) {
-        el.style.color = timeLeft.m < 10 ? '#e74c3c' : '#f39c12';
-    } else {
-        el.style.color = '#f1c40f';
+    _startTimer() {
+        this._stopTimer();
+        this._timerInterval = setInterval(() => this._tickTimer(), 1000);
     }
-}
 
-update() { }
+    _stopTimer() {
+        if (this._timerInterval) {
+            clearInterval(this._timerInterval);
+            this._timerInterval = null;
+        }
+    }
+
+    _tickTimer() {
+        const el = document.getElementById('quest-reset-timer');
+        if (!el) return;
+
+        if (!this.saveManager) { el.textContent = '--:--:--'; return; }
+
+        const timeLeft = this.saveManager.getTimeUntilQuestReset();
+        if (!timeLeft) { el.textContent = '--:--:--'; return; }
+
+        const h = String(timeLeft.h).padStart(2, '0');
+        const m = String(timeLeft.m).padStart(2, '0');
+        const s = String(timeLeft.s).padStart(2, '0');
+        el.textContent = h + ':' + m + ':' + s;
+
+        if (timeLeft.h === 0 && timeLeft.m < 60) {
+            el.style.color = timeLeft.m < 10 ? '#e74c3c' : '#f39c12';
+        } else {
+            el.style.color = '#f1c40f';
+        }
+    }
+
+    update() { }
 }
 // Force update and ensure syntax fixes are deployed.
