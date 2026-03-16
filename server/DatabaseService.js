@@ -430,6 +430,31 @@ class DatabaseService {
                 .select();
 
             if (error) {
+                // Auto-fix column name mismatch if 'money'/'credits' column is missing
+                if (error.code === '42703') { // Undefined column
+                    const isMoney = this.moneyColumn === 'money';
+                    console.warn(`[saveProfile] Column '${this.moneyColumn}' not found. Retrying with '${isMoney ? 'credits' : 'money'}'...`);
+                    
+                    this.moneyColumn = isMoney ? 'credits' : 'money';
+                    
+                    // Re-construct profile with new key
+                    delete profile.money;
+                    delete profile.credits;
+                    profile[this.moneyColumn] = playerData.money;
+                    
+                    const { data: retryData, error: retryError } = await this.supabase
+                        .from('profiles')
+                        .update(profile)
+                        .eq('id', profile.id)
+                        .select();
+                        
+                    if (retryError) {
+                        this._logDbError('saveProfile.retry', retryError);
+                        return { data: null, error: retryError };
+                    }
+                    return { data: retryData, error: null };
+                }
+
                 this._logDbError('saveProfile.update', error, {
                     profileId: profile.id,
                     username: profile.username,
