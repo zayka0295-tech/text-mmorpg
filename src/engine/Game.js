@@ -205,6 +205,18 @@ export class Game {
 
         console.log('Managers injected into Player');
 
+        // Hydrate base stats from server profile.
+        // Must happen AFTER injectManagers() (which runs _applyInitialBonuses via +=).
+        // We overwrite with the saved values so spent stat points and correct bonuses are restored.
+        // For new players these fields are null/undefined — we keep the applyInitialBonuses result.
+        this.player.isInitialLoading = true;
+        if (profile.baseConstitution != null) this.player._baseConstitution = profile.baseConstitution;
+        if (profile.baseStrength != null)     this.player._baseStrength     = profile.baseStrength;
+        if (profile.baseAgility != null)      this.player._baseAgility      = profile.baseAgility;
+        if (profile.baseIntellect != null)    this.player._baseIntellect    = profile.baseIntellect;
+        if (profile.statPoints != null)       this.player._statPoints       = profile.statPoints;
+        this.player.isInitialLoading = false;
+
         // Note: NetworkManager is already connected.
 
         // 7. Get System Instances
