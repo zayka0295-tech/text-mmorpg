@@ -253,19 +253,36 @@ class DatabaseService {
                 reputationChange = voteType === 'up' ? 1 : -1;
             }
 
-            reputation += reputationChange;
+            // 3. Recalculate total reputation from source of truth
+            const { count: upVotes, error: upErr } = await this.supabase
+                .from('reputation_votes')
+                .select('*', { count: 'exact', head: true })
+                .eq('target_id', targetId)
+                .eq('vote_type', 'up');
+
+            const { count: downVotes, error: downErr } = await this.supabase
+                .from('reputation_votes')
+                .select('*', { count: 'exact', head: true })
+                .eq('target_id', targetId)
+                .eq('vote_type', 'down');
+
+            if (upErr || downErr) {
+                return { error: 'Failed to recalculate reputation' };
+            }
+
+            const newReputation = (upVotes || 0) - (downVotes || 0);
 
             const { error: updateError } = await this.supabase
                 .from('profiles')
-                .update({ reputation, updated_at: new Date() })
+                .update({ reputation: newReputation, updated_at: new Date() })
                 .eq('id', targetId);
 
             if (updateError) {
-                this._logDbError('voteReputation.updateTarget', updateError, { targetId, voterId, voteType, reputation });
+                this._logDbError('voteReputation.updateTarget', updateError, { targetId, voterId, voteType, reputation: newReputation });
                 return { error: updateError.message };
             }
 
-            return { data: { reputation, activeVote }, error: null };
+            return { data: { reputation: newReputation, activeVote }, error: null };
         } catch (error) {
             this._logDbError('voteReputation.catch', error, { targetId, voterId, voteType });
             return { error: 'Internal reputation vote error' };
