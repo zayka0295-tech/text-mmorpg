@@ -173,9 +173,14 @@ export class NetworkManager {
                 document.dispatchEvent(new CustomEvent('network:auth_error', { detail: message }));
                 break;
             case 'chat':
-                // Пока просто логируем, позже подключим к ChatScreen
-                console.log(`Chat [${message.senderId}]: ${message.text}`);
                 document.dispatchEvent(new CustomEvent('network:chat', { detail: message }));
+                break;
+            case 'chat_history':
+                if (Array.isArray(message.messages)) {
+                    message.messages.forEach(msg => {
+                        document.dispatchEvent(new CustomEvent('network:chat', { detail: msg }));
+                    });
+                }
                 break;
             case 'player_joined':
                 console.log(`Player joined: ${message.name}`);
