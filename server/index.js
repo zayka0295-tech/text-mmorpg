@@ -389,9 +389,47 @@ async function handleMessage(ws, message, metadata) {
             }
             break;
 
-        case 'rob_result':
-            if (message.targetId) {
-                sendTo(message.targetId, message);
+        case 'rob_attempt':
+            if (metadata.isAnonymous || !metadata.dbId) {
+                ws.send(JSON.stringify({ type: 'rob_result', ok: false, error: 'Unauthorized' }));
+                break;
+            }
+            if (!message.targetId) {
+                ws.send(JSON.stringify({ type: 'rob_result', ok: false, error: 'Target required' }));
+                break;
+            }
+
+            try {
+                const robRes = await db.robPlayer(metadata.dbId, message.targetId);
+                
+                if (robRes.error) {
+                    ws.send(JSON.stringify({ type: 'rob_result', ok: false, error: robRes.error }));
+                } else {
+                    const { stolen, targetName } = robRes.data;
+                    
+                    // 1. Notify Attacker (Success)
+                    ws.send(JSON.stringify({ 
+                        type: 'rob_result', 
+                        ok: true, 
+                        stolen, 
+                        targetName,
+                        targetId: message.targetId 
+                    }));
+
+                    // 2. Notify Victim (If online)
+                    const victimMsg = {
+                        type: 'rob_result',
+                        ok: true,
+                        stolen,
+                        attackerName: metadata.name,
+                        isRobbery: true, // Marker for client handler
+                        message: `🎭 Игрок ${metadata.name} ограбил вас на ${stolen.toLocaleString()} кр.!`
+                    };
+                    sendTo(message.targetId, victimMsg);
+                }
+            } catch (e) {
+                console.error('Rob attempt error:', e);
+                ws.send(JSON.stringify({ type: 'rob_result', ok: false, error: 'Internal server error' }));
             }
             break;
 

@@ -461,19 +461,48 @@ export class PvPManager {
 
         // --- Execute Robbery ---
         
-        // 1. Network Logic
+        // 1. Network Logic (Secure Server-Side Robbery)
         if (playerSelf.networkMgr) {
-             const resultData = {
-                 attacker: playerSelf.name,
-                 stolen: stolen,
-                 isRobbery: true,
-                 message: `🎭 Игрок ${playerSelf.name} ограбил вас на ${stolen.toLocaleString()} кр.!`,
-                 ts: Date.now()
+             playerSelf.networkMgr.sendRobAttempt(targetId);
+             
+             // Temporary listener for the result
+             const handler = (e) => {
+                 const data = e.detail;
+                 // Filter: must be related to our target (if success) or just generic error for us
+                 // The server sends targetId back to attacker on success
+                 if (data.targetId === targetId || (!data.ok && !data.isRobbery)) {
+                     document.removeEventListener('network:rob_result', handler);
+                     clearTimeout(timeout);
+                     
+                     if (data.ok) {
+                         // Success: Server already updated DB, we update local state
+                         const stolen = data.stolen || 0;
+                         playerSelf.money += stolen;
+                         playerSelf._emit('money-changed');
+                         
+                         Notifications.show(`Ограбление! +${stolen.toLocaleString()} кр.`, 'success');
+                         
+                         // Update cooldown locally so we don't spam requests
+                         try { localStorage.setItem(cooldownKey, String(Date.now())); } catch(e) {}
+                         
+                         if(onSuccess) onSuccess(`🎭 УСПЕХ! Украдено ${stolen.toLocaleString()} кр. у ${pName}!`, targetId);
+                     } else {
+                         // Failure
+                         if(onError) onError(data.error || '❌ Ограбление не удалось.');
+                     }
+                 }
              };
-             playerSelf.networkMgr.sendRobResult(targetId, resultData);
+
+             const timeout = setTimeout(() => {
+                 document.removeEventListener('network:rob_result', handler);
+                 if(onError) onError('❌ Сервер не отвечает.');
+             }, 5000);
+
+             document.addEventListener('network:rob_result', handler);
+             return;
         }
 
-        // 2. Legacy LocalStorage Logic (if target is local bot/player)
+        // 2. Legacy LocalStorage Logic (Offline / Local Bots)
         // We check if it is a "real_" ID and we DON'T have a network manager (offline mode)
         // OR if we just want to update local cache anyway?
         // Let's only do local update if offline or if it's explicitly a local target.

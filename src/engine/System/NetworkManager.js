@@ -153,6 +153,10 @@ export class NetworkManager {
         this.send('pvp_lock_start', { targetId });
     }
 
+    sendRobAttempt(targetId) {
+        this.send('rob_attempt', { targetId });
+    }
+
     sendRobResult(targetId, resultData) {
         this.send('rob_result', { targetId, data: resultData });
     }
