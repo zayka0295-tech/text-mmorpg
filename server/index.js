@@ -41,6 +41,9 @@ app.get('*', (req, res) => {
 
 const clients = new Map();
 const chatHistory = [];
+// Cooldown: key = "voterName:targetId", value = timestamp of last vote change
+const reputationVoteCooldowns = new Map();
+const REPUTATION_VOTE_COOLDOWN_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 wss.on('connection', (ws) => {
     const id = uuidv4();
@@ -603,19 +606,22 @@ async function handleMessage(ws, message, metadata) {
                 const voterName = message.senderName || 'Anonymous';
                 const voterId = getStablePlayerId(metadata);
 
-                // Server-side rate limit (2 seconds)
-                const lastVote = metadata.lastVoteTime || 0;
-                if (Date.now() - lastVote < 2000) {
+                // Per-voter-per-target 12-hour cooldown to prevent vote inflation
+                const cooldownKey = `${voterName}:${message.targetId}`;
+                const lastChange = reputationVoteCooldowns.get(cooldownKey) || 0;
+                const cooldownRemaining = REPUTATION_VOTE_COOLDOWN_MS - (Date.now() - lastChange);
+                if (cooldownRemaining > 0) {
+                    const hoursLeft = Math.ceil(cooldownRemaining / 3600000);
                     ws.send(JSON.stringify({
                         type: 'reputation_vote_result',
                         ok: false,
                         targetId: message.targetId,
                         voteType: message.voteType,
-                        error: 'Voting too fast'
+                        error: `Следующий голос можно поставить через ${hoursLeft} ч.`
                     }));
                     break;
                 }
-                metadata.lastVoteTime = Date.now();
+                reputationVoteCooldowns.set(cooldownKey, Date.now());
                 
                 try {
                     if (!message.voteType || !['up', 'down'].includes(message.voteType)) {

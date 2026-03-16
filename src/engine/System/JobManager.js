@@ -38,10 +38,10 @@ export class JobManager {
             }
 
             if (profile) {
-                // Sync player state
-                this.player.activeJob = profile.job_data?.activeJob || null;
-                this.player.jobEndTime = profile.job_data?.jobEndTime || 0;
-                this.player.jobNotified = !!profile.job_data?.jobNotified;
+                // Sync player state — server sends flattened profile (top-level fields)
+                this.player.activeJob = profile.activeJob ?? profile.job_data?.activeJob ?? null;
+                this.player.jobEndTime = Number(profile.jobEndTime ?? profile.job_data?.jobEndTime) || 0;
+                this.player.jobNotified = !!(profile.jobNotified ?? profile.job_data?.jobNotified);
                 
                 this.player.money = profile.money;
                 this.player.xp = profile.xp;

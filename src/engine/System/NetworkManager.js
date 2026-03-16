@@ -221,6 +221,21 @@ export class NetworkManager {
             case 'reputation_vote_result':
                 document.dispatchEvent(new CustomEvent('network:reputation_vote_result', { detail: message }));
                 break;
+            case 'market_result':
+                document.dispatchEvent(new CustomEvent('network:market_result', { detail: message }));
+                break;
+            case 'job_result':
+                document.dispatchEvent(new CustomEvent('network:job_result', { detail: message }));
+                break;
+            case 'bank_result':
+                document.dispatchEvent(new CustomEvent('network:bank_result', { detail: message }));
+                break;
+            case 'inventory_result':
+                document.dispatchEvent(new CustomEvent('network:inventory_result', { detail: message }));
+                break;
+            case 'quest_result':
+                document.dispatchEvent(new CustomEvent('network:quest_result', { detail: message }));
+                break;
             case 'reputation_update':
             case 'reputation_vote':
                 // Someone voted for us

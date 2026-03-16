@@ -68,26 +68,27 @@ export class PlayerModal {
 
         document.addEventListener('network:profile_data', (e) => {
             const { senderId, data } = e.detail;
-            // If the modal is waiting for this target (the sender of the data), render it
-            if (this.waitingForTargetId === senderId) {
-                if (this.profileRequestTimeoutId) {
-                    clearTimeout(this.profileRequestTimeoutId);
-                    this.profileRequestTimeoutId = null;
-                }
-                // Merge received data with basic info we might already have
-                const target = this._normalizeTargetData({
-                    id: senderId,
-                    name: data.name,
-                    // Use data from network, fallback to defaults
-                    ...data,
-                    isOnline: data.isOnline ?? false
-                });
-                this.waitingForTargetId = null;
-                this.waitingForTargetName = null;
-                this.currentTarget = target;
-                this._render(target);
-                document.getElementById('player-modal').classList.add('active');
+            // Accept if we're still waiting for this target OR if the modal is already showing this target
+            const isExpected = this.waitingForTargetId === senderId ||
+                (this.currentTarget && this.currentTarget.id === senderId);
+            if (!isExpected) return;
+
+            if (this.profileRequestTimeoutId) {
+                clearTimeout(this.profileRequestTimeoutId);
+                this.profileRequestTimeoutId = null;
             }
+            this.waitingForTargetId = null;
+            this.waitingForTargetName = null;
+
+            const target = this._normalizeTargetData({
+                id: senderId,
+                name: data.name,
+                ...data,
+                isOnline: data.isOnline ?? false
+            });
+            this.currentTarget = target;
+            this._render(target);
+            document.getElementById('player-modal').classList.add('active');
         });
 
         document.addEventListener('network:reputation_vote_result', (e) => {
@@ -186,7 +187,7 @@ export class PlayerModal {
                         this._showResult('❌ Профиль игрока не загрузился.', 'error');
                     }
                 }
-            }, 1000);
+            }, 4000);
             
             // Show loading state (optional, or just wait)
             // For now, we just wait. If it's fast, it will pop up instantly.
