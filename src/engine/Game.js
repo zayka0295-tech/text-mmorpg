@@ -171,8 +171,10 @@ export class Game {
         if (profile.name) this.player.name = profile.name;
         if (profile.race) this.player.race = profile.race;
         if (profile.className) this.player.className = profile.className;
+        if (profile.title) this.player.title = profile.title; // Fix: Hydrate title from DB!
+
         // We still register PersistenceManager but maybe we don't call load() from LS?
-        // Or we keep LS as a "cache" but server is truth? 
+        // Or we keep LS as a "cache" but server is truth?  
         // For now, server is truth.
         this.serviceManager.register('persistence', () => new PersistenceManager(this.player));
         
